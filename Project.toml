@@ -1,0 +1,4 @@
+name = "TiledView"
+uuid = "ab21d65a-3167-428d-8ea2-d01236aa30f2"
+authors = ["rheintzmann <heintzmann@gmail.com>"]
+version = "0.1.0"
