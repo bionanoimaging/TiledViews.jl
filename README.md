@@ -1,8 +1,5 @@
-# IndexFunArrays.jl
-This package allows to generate complex array expressions based on the indices.
-The `IndexFunArray` does not allocate memory but instead is entry-wise generated once it is accessed.
-`IndexFunArray <: AbstractArray` and behaves almost like a normal array.
-
+# TiledViews.jl
+This package ..
 
 | **Documentation**                       | **Build Status**                          | **Code Coverage**               |
 |:---------------------------------------:|:-----------------------------------------:|:-------------------------------:|
