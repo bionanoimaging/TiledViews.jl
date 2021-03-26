@@ -128,7 +128,7 @@ for F in generate_functions_expr()
                            scale=ScaUnit) where{N, T} 
         offset = get_offset(size, offset)
         scale = get_scale(size, scale)
-        IndexFunArray(T, $(F[2]), size) 
+        TiledView(T, $(F[2]), size) 
     end
     
     # change order of offset and scale
@@ -158,7 +158,7 @@ for F in generate_window_functions_expr()
                            scale=ScaFTEdge, border_in=0.8, border_out=1.0) where{N, T} 
         offset = get_offset(size, offset)
         scale = get_scale(size, scale)
-        IndexFunArray(T, $(F[2]), size) 
+        TiledView(T, $(F[2]), size) 
     end
     
     # change order of offset and scale
