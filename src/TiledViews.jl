@@ -1,6 +1,6 @@
 module TiledViews
 
-export TiledView
+export TiledView, get_num_tiles
 
 # include("concrete_generators.jl")
 
@@ -31,20 +31,33 @@ specified by tile_size, tile_overlap and optionally tile_center.
 
 # Examples
 ```julia-repl
-julia> TiledView(reshape(1:49,(7,7)), (4, 4),(1, 1))
+julia> a = TiledView(reshape(1:49,(7,7)), (4, 4),(1, 1));
+julia> a.parent
+7×7 reshape(::UnitRange{Int64}, 7, 7) with eltype Int64:
+ 1   8  15  22  29  36  43
+ 2   9  16  23  30  37  44
+ 3  10  17  24  31  38  45
+ 4  11  18  25  32  39  46
+ 5  12  19  26  33  40  47
+ 6  13  20  27  34  41  48
+ 7  14  21  28  35  42  49
+ julia> size(a)
+(4, 4, 3, 3)
 ```
 """
-function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int}, tile_center::NTuple{M,Int} = (tile_size .÷2 .+1)) where {T, M}
+function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int},
+                   tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1)) where {T, M}
     # Note that N refers to the original number of dimensions
-    tile_period = tile_size .- tile_overlap
-    data_center = center(data)
-    tile_offset = (data_center .- tile_center) .% tile_period
+    @show tile_period = tile_size .- tile_overlap
+    @show data_center = center(data)
+    @show tile_offset = mod.((data_center .- tile_center), tile_period)
     N = 2*M
     return TiledView{T,N,M}(data; tile_size=tile_size, tile_period=tile_period, tile_offset=tile_offset)
 end
 
-function get_num_tiles(data::TiledView) 
-    return (size(data.parent) .+ data.tile_offset) .÷ data.tile_period
+function get_num_tiles(data::TiledView)
+    num_tiles = mod.(size(data.parent) .+ data.tile_offset, data.tile_period) .+ 1  # Do NOT use .% as this yields strange results!
+    return num_tiles
 end
 
 # define AbstractArray function to allow to treat the generator as an array
@@ -53,18 +66,16 @@ function Base.size(A::TiledView)
     return (A.tile_size...,(get_num_tiles(A))...)
 end
 
-# similar requires to be "mutable".
-# So we might remove this 
-Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = TiledView(A.parent, tile_size, tile_period, tile_offset)
+Base.similar(A::TiledView) where {T} = TiledView(A.parent, A.tile_size,  A.tile_period,  A.tile_offset)
 
 # calculate the entry according to the index
 function Base.getindex(A::TiledView{T,N}, I::Vararg{Int, N}) where {T,N}
     @boundscheck checkbounds(A, I...)
-    TilePos = I[1:N÷2]
-    TileNum = I[N÷2+1:end]
+    TilePos = I[1:N÷2]  # referring to the positon inside a tile
+    TileNum = I[N÷2+1:end] # referring to the tile
     pos = TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period 
     if Base.checkbounds(Bool, A.parent, pos...)
-        return getindex(A.parent, pos... )
+        return Base.getindex(A.parent, pos... )
     else
         return convert(T,0)
     end
@@ -72,7 +83,15 @@ end
 
 # not supported
 Base.setindex!(A::TiledView{T,N}, v, I::Vararg{Int,N}) where {T,N} = begin 
-    error("Attempt to assign entries to IndexFunArray which is immutable.")
+    @boundscheck checkbounds(A, I...)
+    TilePos = I[1:N÷2]
+    TileNum = I[N÷2+1:end]
+    pos = TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period 
+    if Base.checkbounds(Bool, A.parent, pos...)
+        return setindex!(A.parent, v, pos... )
+    else
+        return convert(T,0)
+    end
 end
 
 end # module

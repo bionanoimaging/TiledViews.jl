@@ -3,39 +3,23 @@ using Random
 
 using TiledView
 
-
-
-@testset "Test defined array operation" begin
-    f(ind) = ind[1]
-    arr = IndexFunArray(Int, f, (10, 10))
-    @test arr[2] == arr[12] == arr[2, 2] == 2
-    
-    arr2 = similar(arr, (11, 11))
-    @test arr2[2] == arr2[13] == arr2[2, 2] == 2
-
-    for s in [(10,), (10,1,2), (100, 100), (20,2,2,2,2)]
-        @test s == size(IndexFunArray(ComplexF32, x -> zero(ComplexF32), s))
-    end
-
+@testset "testing array access" begin
+    a = TiledView(reshape(1:49,(7,7)), (4, 4),(0, 0));
+    @test size(a) == (4,4,3,3)
+    @test a[1,1,1,1] == 1    
 end
 
 
 @testset "Check errors" begin
-    f() = try IndexFunArray(Int, x -> zero(Float32), (10, 10))
-        return false
-    catch Error
-        return true
-    end
-    a = IndexFunArray(Int, x -> zero(Int), (10, 10))
-   
-    g() = try a[1] = 1
-        return false
-    catch Error
-        return true
-    end
-
-    @test f()
-    @test g()
+    a = TiledView(reshape(1:49,(7,7)), (4, 4),(0, 0));
+    @test_throws BoundsError a[0,1,1,1]
+    @test_throws BoundsError a[5,1,1,1]
+    @test_throws BoundsError a[4,0,1,1]
+    @test_throws BoundsError a[4,5,1,1]
+    @test_throws BoundsError a[4,1,0,1]
+    @test_throws BoundsError a[4,1,5,1]
+    @test_throws BoundsError a[4,1,1,0]
+    @test_throws BoundsError a[4,1,1,5]
 end
 
 @testset "Test own size method" begin
