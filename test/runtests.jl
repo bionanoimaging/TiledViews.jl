@@ -1,7 +1,7 @@
 using Test
 using Random
 
-using IndexFunArrays
+using TiledView
 
 
 
