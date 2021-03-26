@@ -1,6 +1,6 @@
 module TiledViews
 
-export TiledView, get_num_tiles
+export TiledView, get_num_tiles, TiledWindowView
 
 # include("concrete_generators.jl")
 
@@ -45,18 +45,18 @@ julia> a.parent
 (4, 4, 3, 3)
 ```
 """
-function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int},
+function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int}=tile_size .* 0,
                    tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1)) where {T, M}
     # Note that N refers to the original number of dimensions
-    @show tile_period = tile_size .- tile_overlap
-    @show data_center = center(data)
-    @show tile_offset = mod.((data_center .- tile_center), tile_period)
+    tile_period = tile_size .- tile_overlap
+    data_center = center(data)
+    tile_offset = mod.((data_center .- tile_center), tile_period)
     N = 2*M
     return TiledView{T,N,M}(data; tile_size=tile_size, tile_period=tile_period, tile_offset=tile_offset)
 end
 
 function get_num_tiles(data::TiledView)
-    num_tiles = mod.(size(data.parent) .+ data.tile_offset, data.tile_period) .+ 1  # Do NOT use .% as this yields strange results!
+    num_tiles = ((size(data.parent) .+ data.tile_offset) .÷ data.tile_period) .+ 1  
     return num_tiles
 end
 
@@ -93,5 +93,18 @@ Base.setindex!(A::TiledView{T,N}, v, I::Vararg{Int,N}) where {T,N} = begin
         return convert(T,0)
     end
 end
+
+## Some functions for generating useful tilings
+using IndexFunArrays
+
+function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 0.5) where {T, M}
+    @show tile_overlap = round.(Int,tile_size./2.0 .* rel_overlap)
+    @show winend = (tile_size .÷2 .+1)
+    @show winstart = (winend .- tile_overlap)
+    return window_hanning(tile_size; scale=ScaUnit, border_in=winstart, border_out= winend).*
+           TiledView(data,tile_size, tile_overlap)
+end
+
+
 
 end # module
