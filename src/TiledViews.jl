@@ -145,10 +145,12 @@ julia> data # lets see if the weigths correctly sum to one?
  0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
  0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
 ```
+# This result may also be used for subsequent normalization but can also be directly obtained by
+julia> windowed, writeacess, norm_factors = TiledWindowView(data, (5, 5);get_norm=true);
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
                          rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
-                         window_function=window_hanning) where {T, M}
+                         window_function=window_hanning, get_norm=false) where {T, M}
     tile_overlap = round.(Int,tile_size./2.0 .* rel_overlap)
     tile_pitch = tile_size .- tile_overlap  
     print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
@@ -156,10 +158,23 @@ function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
     winstart = (winend .- tile_overlap)
     print("Window starts at $winstart and ends at $winend.\n")
     changeable = TiledView(data,tile_size, tile_overlap);
-    return (changeable .*window_function(tile_size; 
-            scale=ScaUnit, center=CtrMid
-            border_in=winstart, border_out= winend), changeable)           
+    if get_norm == false
+        return (changeable .*window_function(tile_size; 
+            scale=ScaUnit, offset=CtrMid,
+            border_in=winstart, border_out= winend), changeable)
+    else
+        normalization = ones(Float32,size(data))
+        my_view = TiledView(normalization,tile_size, tile_overlap)
+        normalization .= 0
+        my_view .+= changeable .*window_function(tile_size;scale=ScaUnit, offset=CtrMid, border_in=winstart, border_out= winend)        
+        return (changeable .*window_function(tile_size; 
+            scale=ScaUnit, offset=CtrMid,
+            border_in=winstart, border_out= winend), changeable, normalization)
+    end
 end
+
+# function get_window_normalization(tiled_view::TiledWindowView)
+
 
 # ToDo: prevent set_index in windows or just pass it through
 
