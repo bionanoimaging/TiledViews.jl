@@ -138,12 +138,14 @@ to automatically lay out the windowing such that this effect can be avoided.
 `verbose`. If true, diagnostic information on the window layout is printed.
 
 # Returns
-windowed, writeacess, normalized = TiledWindowView ...
+myview, matching_window = TiledWindowView ...
 a Tuple of two or three (get_norm=true) with
 
-`windowed`. the 2N data mapped through the 2N-dimensional view and the window applied to it
+`myview`. the TiledView of the data without the window which can also be written to.
 
-`writeacess`. the TiledView of the data without the window which can also be written to.
+`matching_window`. a window that can be applied to the view via multiplication myview.*matching_window
+This is intentionally not provided as a product to separate the features conceptually
+when it comes to write access.
 
 `normalized`. only returned for get_norm=true. Contains an array with the normalization information by
 mapping the window back to the original data. This is useful for incomplete coverage of the tiles 
@@ -151,19 +153,20 @@ as well as using windows which do not sum up to one in the tiling process.
 
 # Examples
 ```julia-repl
-julia> data = reshape(1:100,(10,10)).+0.0;
-julia> windowed, writeacess = TiledWindowView(data, (5, 5));
-julia> size(windowed)
+julia> data = ones(10,10).+0.0;
+julia> myview, matching_window = TiledWindowView(data, (5, 5));
+julia> size(myview)
 (5, 5, 4, 4)
-julia> windowed[:,:,2,2]
-5×5 Matrix{Float64}:
-  5.75  16.5  21.5  26.5  15.75
- 12.0   34.0  44.0  54.0  32.0
- 12.5   35.0  45.0  55.0  32.5
- 13.0   36.0  46.0  56.0  33.0
-  6.75  18.5  23.5  28.5  16.75
-julia> writeacess[:,:,:,:].=0  # cleares the original array
-julia> writeacess.parent
+julia> matching_window
+5×5 IndexFunArray{Float64, 2, IndexFunArrays.var"#199#200"{Float64, Tuple{Float64, Float64}, Tuple{Int64, Int64}, Tuple{Float64, Float64}, Tuple{Float64, Float64}}}:
+ 0.0214466  0.125     0.146447  0.125     0.0214466
+ 0.125      0.728553  0.853553  0.728553  0.125
+ 0.146447   0.853553  1.0       0.853553  0.146447
+ 0.125      0.728553  0.853553  0.728553  0.125
+ 0.0214466  0.125     0.146447  0.125     0.0214466
+julia> windowed = collect(myview .* matching_window);
+julia> myview[:,:,:,:].=0  # cleares the original array
+julia> myview.parent
 10×10 Matrix{Float64}:
  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
@@ -175,7 +178,7 @@ julia> writeacess.parent
  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
-julia> writeacess .+= windowed  # writes the windowed data back into the array
+julia> myview .+= windowed  # writes the windowed data back into the array
 julia> data # lets see if the weigths correctly sum to one?
 10×10 Matrix{Float64}:
  0.728553  0.853553  0.853553  0.853553  0.853553  0.853553  0.853553  0.853553  0.853553  0.853553
@@ -190,30 +193,32 @@ julia> data # lets see if the weigths correctly sum to one?
  0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
 ```
 # This result may also be used for subsequent normalization but can also be directly obtained by
-julia> windowed, writeacess, norm_factors = TiledWindowView(data, (5, 5);get_norm=true);
+julia> myview, matching_window, normalized = TiledWindowView(rand(10,10).+0, (5, 5);get_norm=true);
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
                          rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
                          window_function=window_hanning, get_norm=false, verbose=false) where {T, M}
     tile_overlap = round.(Int,tile_size./2.0 .* rel_overlap)
     tile_pitch = tile_size .- tile_overlap  
-    print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
     winend = (tile_size ./ 2.0)
     winstart = (winend .- tile_overlap)
-    print("Window starts at $winstart and ends at $winend.\n")
+    if verbose
+        print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
+        print("Window starts at $winstart and ends at $winend.\n")
+    end
     changeable = TiledView(data,tile_size, tile_overlap);
     if get_norm == false
-        return (changeable .*window_function(tile_size; 
+        return (changeable , window_function(tile_size; 
             scale=ScaUnit, offset=CtrMid,
-            border_in=winstart, border_out= winend), changeable)
+            border_in=winstart, border_out= winend))
     else
         normalization = ones(Float32,size(data))
         my_view = TiledView(normalization,tile_size, tile_overlap)
         normalization .= 0
         my_view .+= changeable .*window_function(tile_size;scale=ScaUnit, offset=CtrMid, border_in=winstart, border_out= winend)        
-        return (changeable .*window_function(tile_size; 
+        return (changeable, window_function(tile_size; 
             scale=ScaUnit, offset=CtrMid,
-            border_in=winstart, border_out= winend), changeable, normalization)
+            border_in=winstart, border_out= winend), normalization)
     end
 end
 
