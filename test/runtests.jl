@@ -1,6 +1,6 @@
 using Test
 using Random
-using TiledView
+using TiledViews
 
 @testset "testing array access" begin
     a = TiledView(reshape(1:49,(7,7)), (4, 4),(0, 0));
