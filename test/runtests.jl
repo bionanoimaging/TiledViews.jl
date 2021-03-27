@@ -1,6 +1,5 @@
 using Test
 using Random
-
 using TiledView
 
 @testset "testing array access" begin
