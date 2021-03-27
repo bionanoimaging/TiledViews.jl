@@ -151,10 +151,17 @@ when it comes to write access.
 mapping the window back to the original data. This is useful for incomplete coverage of the tiles 
 as well as using windows which do not sum up to one in the tiling process.
 
+Note that it may be dangerous to directly access the view via a simple .+= operation as
+it is not entirely clear, whether it is always garanteed that there could not be any running
+conditions with read-write operations, since some points in the referenced array are accessed
+multiple times. To avoid such an effect, you can, for example, only acess every second tile along each dimension
+in one call.
 # Examples
 ```julia-repl
 julia> data = ones(10,10).+0.0;
-julia> myview, matching_window = TiledWindowView(data, (5, 5));
+julia> myview, matching_window = TiledWindowView(data, (5, 5);verbose=true);
+Tiles with pitch (3, 3) overlap by (2, 2) pixels.
+Window starts at (0.5, 0.5) and ends at (2.5, 2.5).
 julia> size(myview)
 (5, 5, 4, 4)
 julia> matching_window
