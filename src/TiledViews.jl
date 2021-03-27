@@ -107,7 +107,7 @@ specified by tile_size, tile_overlap and optionally tile_center.
 
 # Examples
 ```julia-repl
-julia> data = collect(reshape(Float32,1:100,(10,10)));
+julia> data = reshape(1:100,(10,10)).+0.0;
 julia> windowed, writeacess = TiledWindowView(data, (5, 5));
 julia> size(windowed)
 (5, 5, 4, 4)
@@ -118,20 +118,49 @@ julia> windowed[:,:,2,2]
  12.5   35.0  45.0  55.0  32.5
  13.0   36.0  46.0  56.0  33.0
   6.75  18.5  23.5  28.5  16.75
-julia>  writeacess[:,:,:,:].=0  # eliminates 
+julia> writeacess[:,:,:,:].=0  # cleares the original array
+julia> writeacess.parent
+10×10 Matrix{Float64}:
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+ 0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0
+julia> writeacess .+= windowed  # writes the windowed data back into the array
+julia> data # lets see if the weigths correctly sum to one?
+10×10 Matrix{Float64}:
+ 0.728553  0.853553  0.853553  0.853553  0.853553  0.853553  0.853553  0.853553  0.853553  0.853553
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
+ 0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
 ```
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
                          rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
                          window_function=window_hanning) where {T, M}
-    @show tile_overlap = round.(Int,tile_size./2.0 .* rel_overlap)
-    @show winend = (tile_size .÷2 .+1)
-    @show winstart = (winend .- tile_overlap)
-    @show changeable = TiledView(data,tile_size, tile_overlap);
-    return (changeable .*window_function(tile_size; scale=ScaUnit, border_in=winstart, border_out= winend), changeable)           
+    tile_overlap = round.(Int,tile_size./2.0 .* rel_overlap)
+    tile_pitch = tile_size .- tile_overlap  
+    print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
+    winend = (tile_size ./ 2.0)
+    winstart = (winend .- tile_overlap)
+    print("Window starts at $winstart and ends at $winend.\n")
+    changeable = TiledView(data,tile_size, tile_overlap);
+    return (changeable .*window_function(tile_size; 
+            scale=ScaUnit, center=CtrMid
+            border_in=winstart, border_out= winend), changeable)           
 end
 
 # ToDo: prevent set_index in windows or just pass it through
-
 
 end # module
