@@ -29,6 +29,15 @@ end
 Creates an 2N dimensional view of the data by tiling the N-dimensional data as 
 specified by tile_size, tile_overlap and optionally tile_center.
 
+`data`. the inputdata to decompose into a TiledView. No copies are made for the TiledView and
+the raw data can be accessed via myview.parent.
+
+`tile_size`. A Tuple describing the size of each tile. This size will form the first N dimensions of the
+result of size(myview). The second N dimensions refer to N-dimensional tile numbering.
+
+`rel_overlap`. Tuple specifying the relative overlap between successive tiles in voxels. This implicitely
+defines the pitch between tiles as (tile_size .- rel_overlap).
+
 # Examples
 ```julia-repl
 julia> a = TiledView(reshape(1:49,(7,7)), (4, 4),(1, 1));
@@ -98,12 +107,47 @@ end
 using IndexFunArrays
 
 """
-    TiledWindowView([T], data::F, tile_size::NTuple{N,Int}, 
-                    rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 0.5,
-                    window_function=:(window_hanning)) where {T, M}
+function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
+    rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
+    window_function=window_hanning, get_norm=false, verbose=false) where {T, M}
 
 Creates an 2N dimensional view of the data by tiling the N-dimensional data as 
 specified by tile_size, tile_overlap and optionally tile_center.
+Additionally a window is applied to this view. If the window_type as defined in
+IndexFunArrays sums up to one,
+which is the case for window_linear and window_hanning, a linear decomposition of the
+data is obtained apart from possible border effects.
+`data`. the inputdata to decompose into a TiledView. No copies are made for the TiledView and
+the raw data can be accessed via myview.parent.
+
+`tile_size`. A Tuple describing the size of each tile. This size will form the first N dimensions of the
+result of size(myview). The second N dimensions refer to N-dimensional tile numbering.
+
+`rel_overlap`. Tuple specifying the relative overlap between successive tiles in voxels. This implicitely
+defines the pitch between tiles as (tile_size .- rel_overlap).
+
+`window_function`. The window function as defined in IndexFunArrays to apply to the TiledView.
+The result is currently not any longer a view as it is unclear how to wrap the multiplication into a view.
+For this reason the TiledView without the window applied is also returned and can be used for assignments.
+By default a von Hann window (window_hanning) is used.
+
+`get_norm`. An optional Boolean argument allowing to also obtain the normalization map for the boarder pixels, which
+not necessarily undergo all required window operations. In a future version it may be possible
+to automatically lay out the windowing such that this effect can be avoided.
+
+`verbose`. If true, diagnostic information on the window layout is printed.
+
+# Returns
+windowed, writeacess, normalized = TiledWindowView ...
+a Tuple of two or three (get_norm=true) with
+
+`windowed`. the 2N data mapped through the 2N-dimensional view and the window applied to it
+
+`writeacess`. the TiledView of the data without the window which can also be written to.
+
+`normalized`. only returned for get_norm=true. Contains an array with the normalization information by
+mapping the window back to the original data. This is useful for incomplete coverage of the tiles 
+as well as using windows which do not sum up to one in the tiling process.
 
 # Examples
 ```julia-repl
@@ -150,7 +194,7 @@ julia> windowed, writeacess, norm_factors = TiledWindowView(data, (5, 5);get_nor
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
                          rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
-                         window_function=window_hanning, get_norm=false) where {T, M}
+                         window_function=window_hanning, get_norm=false, verbose=false) where {T, M}
     tile_overlap = round.(Int,tile_size./2.0 .* rel_overlap)
     tile_pitch = tile_size .- tile_overlap  
     print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
@@ -172,9 +216,6 @@ function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
             border_in=winstart, border_out= winend), changeable, normalization)
     end
 end
-
-# function get_window_normalization(tiled_view::TiledWindowView)
-
 
 # ToDo: prevent set_index in windows or just pass it through
 
