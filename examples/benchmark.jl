@@ -1,12 +1,8 @@
-using IndexFunArrays
+using TiledViews
 using BenchmarkTools
 
-function rr_test(s)
-    x = ones(s)
-    y = rr2(x) .+ sqrt.(1.2 .* rr2(x, scale=(1,1), offset=CtrCorner));
-    @btime $y .= rr2($x) .+ sqrt.(1.2 .* rr2($x, scale=(1,1), offset=CtrCorner));
-    @btime $y .= rr2($x) .+ sqrt.(1.2 .* rr2($x, scale=(1,1), offset=CtrCorner));
-    @btime $y .= rr2($x) .+ sqrt.(1.2 .* rr2($x, scale=(1,1), offset=CtrCorner));
+function tv_test(s)
+    @btime 
     return 
 end
 

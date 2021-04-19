@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 Colors = "5ae59095-9a9b-59fe-a467-6f913c188581"
+IndexFunArrays = "613c443e-d742-454e-bfc6-1d7f8dd76566"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 View5D = "90d841e0-6953-4e90-9f3a-43681da8e949"
