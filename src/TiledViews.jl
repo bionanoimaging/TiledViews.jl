@@ -39,7 +39,7 @@ result of size(myview). The second N dimensions refer to N-dimensional tile numb
 defines the pitch between tiles as (tile_size .- rel_overlap).
 
 # Examples
-```julia-repl
+```jldoctest
 julia> a = TiledView(reshape(1:49,(7,7)), (4, 4),(1, 1));
 julia> a.parent
 7×7 reshape(::UnitRange{Int64}, 7, 7) with eltype Int64:
@@ -157,7 +157,7 @@ conditions with read-write operations, since some points in the referenced array
 multiple times. To avoid such an effect, you can, for example, only acess every second tile along each dimension
 in one call.
 # Examples
-```julia-repl
+```jldoctest
 julia> data = ones(10,10).+0.0;
 julia> myview, matching_window = TiledWindowView(data, (5, 5);verbose=true);
 Tiles with pitch (3, 3) overlap by (2, 2) pixels.
