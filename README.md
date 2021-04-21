@@ -6,7 +6,8 @@ it sums up to one except in places very close to the border, where an insufficie
 However this can effect can easily be accounted for, since it optionally returns an overall weight distribution.
 
 Example: 
-```julia> a = TiledView(reshape(1:49,(7,7)), (4, 4),(1, 1));
+```julia
+julia> a = TiledView(reshape(1:49,(7,7)), (4, 4),(1, 1));
 
 julia> size(a)
 (4, 4, 3, 3)
