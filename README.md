@@ -13,7 +13,15 @@ julia> size(a)
 (4, 4, 3, 3)
 ```
 
+
 | **Documentation**                       | **Build Status**                          | **Code Coverage**               |
 |:---------------------------------------:|:-----------------------------------------:|:-------------------------------:|
 | [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url] | [![][CI-img]][CI-url] | [![][codecov-img]][codecov-url] |
 
+
+
+## Installation
+Type `]`in the REPL to get to the package manager and install it:
+```julia
+julia> ] add https://github.com/bionanoimaging/TiledViews.jl
+```
