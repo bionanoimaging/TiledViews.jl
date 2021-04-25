@@ -5,17 +5,17 @@ export TiledView, get_num_tiles, TiledWindowView
 # include("concrete_generators.jl")
 
  # T refers to the result type. N to the dimensions of the final array, and M to the dimensions of the raw array
-struct TiledView{T, N, M} <: AbstractArray{T, N} 
+struct TiledView{T, N, M, AA<:AbstractArray{T, M}} <: AbstractArray{T, N} 
     # stores the data. 
-    parent::AbstractArray{T, M}
+    parent::AA
     # output size of the array 
     tile_size::NTuple{M, Int}
     tile_period::NTuple{M, Int}
     tile_offset::NTuple{M, Int}
 
     # Constructor function
-    function TiledView{T, N, M}(data::AbstractArray{T, M}; tile_size::NTuple{M,Int}, tile_period::NTuple{M,Int}, tile_offset::NTuple{M,Int}) where {T,M,N}
-        return new{T, N, M}(data, tile_size, tile_period, tile_offset) 
+    function TiledView{T, N, M}(data::AA; tile_size::NTuple{M,Int}, tile_period::NTuple{M,Int}, tile_offset::NTuple{M,Int}) where {T,M,N,AA}
+        return new{T, N, M, AA}(data, tile_size, tile_period, tile_offset) 
     end
 end
 
@@ -75,7 +75,12 @@ function Base.size(A::TiledView)
     return (A.tile_size...,(get_num_tiles(A))...)
 end
 
-Base.similar(A::TiledView) where {T} = TiledView(A.parent, A.tile_size,  A.tile_period,  A.tile_offset)
+Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = TiledView(A.parent, A.tile_size,  A.tile_period,  A.tile_offset)
+
+# %24 = Base.getproperty(A, :parent)::AbstractMatrix{Float64}
+
+# calculate the entry according to the index
+# Base.getindex(A::IndexFunArray{T,N}, I::Vararg{B, N}) where {T,N, B} = return A.generator(I)
 
 # calculate the entry according to the index
 function Base.getindex(A::TiledView{T,N}, I::Vararg{Int, N}) where {T,N}
