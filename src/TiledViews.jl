@@ -2,8 +2,6 @@ module TiledViews
 
 export TiledView, get_num_tiles, TiledWindowView
 
-# include("concrete_generators.jl")
-
  # T refers to the result type. N to the dimensions of the final array, and M to the dimensions of the raw array
 struct TiledView{T, N, M, AA<:AbstractArray{T, M}} <: AbstractArray{T, N} 
     # stores the data. 
