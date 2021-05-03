@@ -1,6 +1,6 @@
 module TiledViews
 
-export TiledView, get_num_tiles, TiledWindowView
+export TiledView, get_num_tiles, TiledWindowView, tile_centers
 
  # T refers to the result type. N to the dimensions of the final array, and M to the dimensions of the raw array
 struct TiledView{T, N, M, AA<:AbstractArray{T, M}} <: AbstractArray{T, N} 
@@ -80,12 +80,17 @@ Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = TiledView(A.parent
 # calculate the entry according to the index
 # Base.getindex(A::IndexFunArray{T,N}, I::Vararg{B, N}) where {T,N, B} = return A.generator(I)
 
+@inline function pos_from_tile(A, TilePos, TileNum)
+    TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period
+end
+
 # calculate the entry according to the index
 function Base.getindex(A::TiledView{T,N}, I::Vararg{Int, N}) where {T,N}
     @boundscheck checkbounds(A, I...)
     TilePos = I[1:N÷2]  # referring to the positon inside a tile
     TileNum = I[N÷2+1:end] # referring to the tile
-    pos = TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period 
+    pos = pos_from_tile(A, TilePos, TileNum)
+    # pos = TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period 
     if Base.checkbounds(Bool, A.parent, pos...)
         return Base.getindex(A.parent, pos... )
     else
@@ -98,7 +103,8 @@ Base.setindex!(A::TiledView{T,N}, v, I::Vararg{Int,N}) where {T,N} = begin
     @boundscheck checkbounds(A, I...)
     TilePos = I[1:N÷2]
     TileNum = I[N÷2+1:end]
-    pos = TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period 
+    pos = pos_from_tile(A, TilePos, TileNum)
+    # pos = TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period 
     if Base.checkbounds(Bool, A.parent, pos...)
         return setindex!(A.parent, v, pos... )
     else
@@ -229,6 +235,24 @@ function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
         return (changeable, window_function(tile_size; 
             scale=ScaUnit, offset=CtrMid,
             border_in=winstart, border_out= winend), normalization)
+    end
+end
+
+"""
+    tile_centers(A, scale=nothing)
+returns the center coordinates of integer tile centers with respect to the integer center `1 .+ size(A) .÷ 2 ` 
+"""
+function tiles_center(A, scale=nothing)
+    nd = ndims(A)/2
+    ctr_array = (size(A.parent) .÷ 2) .+ 1 # center of the parent array
+    num_tiles = size(A)[end-nd+1:end]
+    # ctr_tile = (num_tiles.÷2 .+1)
+    tile_ctr = (size(A)[1:nd] .÷ 2) .+ 1
+    if isnothing(scale)
+        [pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array for idx in CartesianIndices(num_tiles)]
+        # [(Tuple(idx).-1).* A.tile_period .+ ctr for idx in CartesianIndices(num_tiles)]
+    else
+        [scale .* (pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array) for idx in CartesianIndices(num_tiles)]
     end
 end
 
