@@ -73,7 +73,9 @@ function Base.size(A::TiledView)
     return (A.tile_size...,(get_num_tiles(A))...)
 end
 
-Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = TiledView(A.parent, A.tile_size,  A.tile_period,  A.tile_offset)
+# Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = TiledView(A.parent, A.tile_size,  A.tile_period,  A.tile_offset)
+Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = 
+    Array{eltype(A)}(undef, size...) 
 
 # %24 = Base.getproperty(A, :parent)::AbstractMatrix{Float64}
 
@@ -242,7 +244,7 @@ end
     tile_centers(A, scale=nothing)
 returns the center coordinates of integer tile centers with respect to the integer center `1 .+ size(A) .÷ 2 ` 
 """
-function tiles_center(A, scale=nothing)
+function tile_centers(A, scale=nothing)
     nd = ndims(A)/2
     ctr_array = (size(A.parent) .÷ 2) .+ 1 # center of the parent array
     num_tiles = size(A)[end-nd+1:end]
