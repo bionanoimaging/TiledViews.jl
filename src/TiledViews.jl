@@ -2,6 +2,8 @@ module TiledViews
 
 export TiledView, get_num_tiles, TiledWindowView, tile_centers
 
+tuple_len(::NTuple{N, Any}) where {N} = Val{N}()
+
  # T refers to the result type. N to the dimensions of the final array, and M to the dimensions of the raw array
 struct TiledView{T, N, M, AA<:AbstractArray{T, M}} <: AbstractArray{T, N} 
     # stores the data. 
@@ -10,10 +12,19 @@ struct TiledView{T, N, M, AA<:AbstractArray{T, M}} <: AbstractArray{T, N}
     tile_size::NTuple{M, Int}
     tile_period::NTuple{M, Int}
     tile_offset::NTuple{M, Int}
+    pad_value::T
 
     # Constructor function
-    function TiledView{T, N, M}(data::AA; tile_size::NTuple{M,Int}, tile_period::NTuple{M,Int}, tile_offset::NTuple{M,Int}) where {T,M,N,AA}
-        return new{T, N, M, AA}(data, tile_size, tile_period, tile_offset) 
+    function TiledView{T, N, M}(data::AA; tile_size::NTuple{M,Int}, tile_period::NTuple{M,Int}, tile_offset::NTuple{M,Int}, pad_value=nothing) where {T,M,N,AA}
+        if isnothing(pad_value)
+        if T <: NTuple
+            pad_value = T(Base.Iterators.repeated(0))
+        # elseif T <: AbstractArray            
+        else
+            pad_value = convert(T,0)  # this may crash, but then the user should specify a valid pad_value
+        end
+        end
+        return new{T, N, M, AA}(data, tile_size, tile_period, tile_offset, pad_value) 
     end
 end
 
@@ -22,7 +33,7 @@ function center(data)
 end
 
 """
-    TiledView([T], data::F, tile_size::NTuple{N,Int}, tile_overlap::NTuple{N,Int}) where {N,F}
+    TiledView([T], data::F, tile_size::NTuple{N,Int}, tile_overlap::NTuple{N,Int}; pad_value::T)
 
 Creates an 2N dimensional view of the data by tiling the N-dimensional data as 
 specified by tile_size, tile_overlap and optionally tile_center.
@@ -35,6 +46,8 @@ result of size(myview). The second N dimensions refer to N-dimensional tile numb
 
 `rel_overlap`. Tuple specifying the relative overlap between successive tiles in voxels. This implicitely
 defines the pitch between tiles as (tile_size .- rel_overlap).
+
+`pad_value`. Specifies the answer that is returned when get_index is applied to a position outside the source array
 
 # Examples
 ```jldoctest
@@ -53,13 +66,13 @@ julia> a.parent
 ```
 """
 function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int}=tile_size .* 0,
-                   tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1)) where {T, M}
+                   tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1); pad_value=nothing) where {T, M}
     # Note that N refers to the original number of dimensions
     tile_period = tile_size .- tile_overlap
     data_center = center(data)
     tile_offset = mod.((data_center .- tile_center), tile_period)
     N = 2*M
-    return TiledView{T,N,M}(data; tile_size=tile_size, tile_period=tile_period, tile_offset=tile_offset)
+    return TiledView{T,N,M}(data; tile_size=tile_size, tile_period=tile_period, tile_offset=tile_offset, pad_value=pad_value)
 end
 
 function get_num_tiles(data::TiledView)
@@ -96,7 +109,7 @@ function Base.getindex(A::TiledView{T,N}, I::Vararg{Int, N}) where {T,N}
     if Base.checkbounds(Bool, A.parent, pos...)
         return Base.getindex(A.parent, pos... )
     else
-        return convert(T,0)
+        return A.pad_value; 
     end
 end
 
@@ -242,7 +255,7 @@ end
 
 """
     tile_centers(A, scale=nothing)
-returns the center coordinates of integer tile centers with respect to the integer center `1 .+ size(A) .÷ 2 ` 
+returns the relative center coordinates of integer tile centers with respect to the integer center `1 .+ size(A) .÷ 2 ` 
 """
 function tile_centers(A, scale=nothing)
     nd = ndims(A)/2
