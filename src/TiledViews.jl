@@ -1,6 +1,7 @@
 module TiledViews
-
-export TiledView, get_num_tiles, TiledWindowView, tile_centers
+using NDTools
+export TiledView, get_num_tiles, TiledWindowView, tile_centers, get_window, tiled_processing
+export get_num_tiles, get_tile_iterator, get_tile_number_iterator
 
 tuple_len(::NTuple{N, Any}) where {N} = Val{N}()
 
@@ -66,17 +67,21 @@ julia> a.parent
 ```
 """
 function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int}=tile_size .* 0,
-                   tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1); pad_value=nothing) where {T, M}
+                   tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1); pad_value=nothing, keep_center=true) where {T, M}
     # Note that N refers to the original number of dimensions
     tile_period = tile_size .- tile_overlap
-    data_center = center(data)
-    tile_offset = mod.((data_center .- tile_center), tile_period)
+    if keep_center
+        data_center = center(data)
+        tile_offset = mod.((data_center .- tile_center), tile_period)
+    else
+        tile_offset = tile_period .* 0
+    end
     N = 2*M
     return TiledView{T,N,M}(data; tile_size=tile_size, tile_period=tile_period, tile_offset=tile_offset, pad_value=pad_value)
 end
 
 function get_num_tiles(data::TiledView)
-    num_tiles = ((size(data.parent) .+ data.tile_offset) .÷ data.tile_period) .+ 1  
+    num_tiles = ((size(data.parent) .+ data.tile_offset .- 1) .÷ data.tile_period) .+ 1  
     return num_tiles
 end
 
@@ -87,8 +92,10 @@ function Base.size(A::TiledView)
 end
 
 # Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = TiledView(A.parent, A.tile_size,  A.tile_period,  A.tile_offset)
-Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = 
-    Array{eltype(A)}(undef, size...) 
+function Base.similar(A::TiledView, ::Type{T}) where {T}
+    TiledView{T,ndims(A),length(A.tile_size)}(similar(A.parent, T); tile_size=A.tile_size, tile_period=A.tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
+end
+# Array{eltype(A)}(undef, size...) 
 
 # %24 = Base.getproperty(A, :parent)::AbstractMatrix{Float64}
 
@@ -113,7 +120,6 @@ function Base.getindex(A::TiledView{T,N}, I::Vararg{Int, N}) where {T,N}
     end
 end
 
-# not supported
 Base.setindex!(A::TiledView{T,N}, v, I::Vararg{Int,N}) where {T,N} = begin 
     @boundscheck checkbounds(A, I...)
     TilePos = I[1:N÷2]
@@ -129,6 +135,75 @@ end
 
 ## Some functions for generating useful tilings
 using IndexFunArrays
+
+"""
+    get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false);
+
+Calculates a window matching to the `TiledView`.
+
+`window_function`. The window function as defined in IndexFunArrays to apply to the TiledView.
+The result is currently not any longer a view as it is unclear how to wrap the multiplication into a view.
+For this reason the TiledView without the window applied is also returned and can be used for assignments.
+By default a von Hann window (window_hanning) is used.
+
+`get_norm`. An optional Boolean argument allowing to also obtain the normalization map for the boarder pixels, which
+not necessarily undergo all required window operations. In a future version it may be possible
+to automatically lay out the windowing such that this effect can be avoided.
+
+`verbose`. If true, diagnostic information on the window layout is printed.
+
+# Returns
+`matching_window`. a window that can be applied to the view via multiplication myview.*matching_window
+This is intentionally not provided as a product to separate the features conceptually
+when it comes to write access.
+
+`normalized`. only returned for get_norm=true. Contains an array with the normalization information by
+mapping the window back to the original data. This is useful for incomplete coverage of the tiles 
+as well as using windows which do not sum up to one in the tiling process.
+
+# Examples
+```jldoctest
+julia> data = ones(10,10).+0.0;
+julia> myview = TiledView(data, (5, 5), (2,2));
+julia> win = get_window(myview, verbose=true);
+Tiles with pitch (3, 3) overlap by (2, 2) pixels.
+Window starts at (0.5, 0.5) and ends at (2.5, 2.5).
+
+julia> win
+5×5 IndexFunArrays.IndexFunArray{Float64, 2, IndexFunArrays.var"#329#331"{Float64, Tuple{Float64, Float64}, Tuple{Int64, Int64}, Tuple{Float64, Float64}, Tuple{Float64, Float64}}}:
+ 0.0214466  0.125     0.146447  0.125     0.0214466
+ 0.125      0.728553  0.853553  0.728553  0.125
+ 0.146447   0.853553  1.0       0.853553  0.146447
+ 0.125      0.728553  0.853553  0.728553  0.125
+ 0.0214466  0.125     0.146447  0.125     0.0214466
+
+ see TiledWindowView() for more examples.
+"""
+function get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false)
+    tile_size = A.tile_size
+    tile_pitch = A.tile_period
+    tile_overlap = tile_size .- tile_pitch
+
+    winend = (tile_size ./ 2.0)
+    winstart = (winend .- tile_overlap)
+    if verbose
+        print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
+        print("Window starts at $winstart and ends at $winend.\n")
+    end
+    if get_norm == false
+        return window_function(tile_size; 
+            scale=ScaUnit, offset=CtrMid,
+            border_in=winstart, border_out= winend)
+    else
+        normalization = ones(Float32,size(data))
+        my_view = TiledView(normalization,tile_size, tile_overlap)
+        normalization .= 0
+        my_view .+= A .*window_function(tile_size;scale=ScaUnit, offset=CtrMid, border_in=winstart, border_out= winend)        
+        return (window_function(tile_size; 
+            scale=ScaUnit, offset=CtrMid,
+            border_in=winstart, border_out= winend), normalization)
+    end
+end
 
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
@@ -228,28 +303,14 @@ julia> myview, matching_window, normalized = TiledWindowView(rand(10,10).+0, (5,
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
                          rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
-                         window_function=window_hanning, get_norm=false, verbose=false) where {T, M}
+                         window_function=window_hanning, get_norm=false, verbose=false, keep_center=true) where {T, M}
     tile_overlap = round.(Int,tile_size./2.0 .* rel_overlap)
-    tile_pitch = tile_size .- tile_overlap  
-    winend = (tile_size ./ 2.0)
-    winstart = (winend .- tile_overlap)
-    if verbose
-        print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
-        print("Window starts at $winstart and ends at $winend.\n")
-    end
-    changeable = TiledView(data,tile_size, tile_overlap);
-    if get_norm == false
-        return (changeable , window_function(tile_size; 
-            scale=ScaUnit, offset=CtrMid,
-            border_in=winstart, border_out= winend))
+    changeable = TiledView(data,tile_size, tile_overlap, keep_center=keep_center);
+    win = get_window(changeable, window_function= window_function, get_norm=get_norm, verbose=verbose)
+    if get_norm
+        return (changeable, win...)
     else
-        normalization = ones(Float32,size(data))
-        my_view = TiledView(normalization,tile_size, tile_overlap)
-        normalization .= 0
-        my_view .+= changeable .*window_function(tile_size;scale=ScaUnit, offset=CtrMid, border_in=winstart, border_out= winend)        
-        return (changeable, window_function(tile_size; 
-            scale=ScaUnit, offset=CtrMid,
-            border_in=winstart, border_out= winend), normalization)
+        return (changeable, win)
     end
 end
 
@@ -272,5 +333,42 @@ function tile_centers(A, scale=nothing)
 end
 
 # ToDo: prevent set_index in windows or just pass it through
+
+function get_tile_iterator(tiled_view::TiledView)
+    nd = ndims(tiled_view)÷2
+    nz = ((size(tiled_view)[1:nd])..., prod(size(tiled_view)[nd+1:end]))
+    reshaped = reshape(tiled_view, nz)
+    return eachslice(reshaped, dims=nd+1)
+end
+
+
+function get_tile_number_iterator(tiled_view::TiledView)
+    return (Tuple(tn) for tn in CartesianIndices(get_num_tiles(tiled_view)))
+end
+
+function tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=nothing, window_function=window_hanning)
+    if isnothing(dtype)
+        res = similar(tiled_view)
+    else
+        res = similar(tiled_view, dtype)
+    end
+    res.parent .= 0.0
+    win = get_window(tiled_view, window_function=window_function)
+    ttn = get_num_tiles(tiled_view)
+    for (src, dest, tn) in zip(get_tile_iterator(tiled_view), get_tile_iterator(res), get_tile_number_iterator(res))
+        if verbose
+            perc = round(100 * (linear_index(tn, ttn)-1) ./ prod(ttn))
+            print("processing tile $(tn) out of $(ttn), $(perc)%\n")
+        end
+        res_tile = fct(collect(src))
+        dest .+= win .* res_tile
+    end
+    return res
+end
+
+function tiled_processing(data, fct, tile_size, tile_overlap; verbose=true, dtype=nothing, keep_center=false, window_function=window_hanning)
+    tiles = TiledView(data, tile_size, tile_overlap, keep_center=keep_center);
+    return tiled_processing(tiles,fct; verbose=verbose, dtype=dtype, window_function=window_function)
+end
 
 end # module
