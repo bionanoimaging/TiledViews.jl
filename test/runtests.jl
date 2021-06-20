@@ -35,6 +35,7 @@ end
     @test [[(-60, -54), (20,-54)] [(-60, 37), (20,37)]] == tile_centers(a)
 end
 
+#=
 @testset "similar" begin
     function compare_sizes(a)
         b=similar(a);
@@ -55,17 +56,30 @@ end
         a = TiledView(ones(sz...), ts, overlap, keep_center=keep_ctr);
         compare_sizes(a);
     end
+end
+=#
+@testset "similar" begin
+    q = rand(100,101);
+    a=TiledView(q, (80,91), (0,0));
+    @test size(similar(a)) == size(a)
+    @test eltype(similar(a,Int32)) == Int32
+    @test size(similar(a,Int32,(30,40,1))) == (30,40,1)
+end
 
-    @testset "TiledWindowView" begin
-        dest = ones(512,512)
-        tile_size = (65,65)
-        tiles, win = TiledWindowView(dest, tile_size, rel_overlap=(1.0,1.0));
-        to_write = 0.2 .* win .* collect(tiles[:,:,:,:]);
-        #tiles[:,:,:,:] .+= to_write[:,:,:,:] ;  # why can one NOT use [:,:,:,:]? 
-        tiles .+= to_write ;  # why can one NOT use [:,:,:,:]? 
-        @test sum(abs.(dest[50:end-50,50:end-50] .- 1.2)) < 1e-10
-    end
-    
+@testset "TiledWindowView" begin
+    dest = ones(512,512)
+    tile_size = (65,65)
+    tiles, win = TiledWindowView(dest, tile_size, rel_overlap=(1.0,1.0));
+    to_write = 0.2 .* win .* collect(tiles[:,:,:,:]);
+    #tiles[:,:,:,:] .+= to_write[:,:,:,:] ;  # why can one NOT use [:,:,:,:]? 
+    tiles .+= to_write ;  # why can one NOT use [:,:,:,:]? 
+    @test sum(abs.(dest[50:end-50,50:end-50] .- 1.2)) < 1e-10
+end
+
+@testset "sub-indexing" begin
+    q = rand(100,101);
+    a=TiledView(q, (80,91), (0,0));
+    @test size(a[:,3:14,1:2,1]) == (80,12,2)
 end
 
 return

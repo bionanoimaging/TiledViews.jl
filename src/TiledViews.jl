@@ -96,14 +96,14 @@ end
 # Note that the similar function below will most of the times expand the overall required datasize
 function Base.similar(A::TiledView, ::Type{T}=eltype(A.parent), dims::Dims=size(A)) where {T}
     # The first N coordinates are position within a tile, the second N coordinates are tile number
-    # core_sz =  size(A.parent)
-    # @show tile_overlap = A.tile_size .- A.tile_period
-    N = length(A.tile_size)
+    #= N = length(A.tile_size)
     new_tile_sz = dims[1:N]
     new_num_tiles = dims[N + 1:end]
     new_tile_period = A.tile_period .+ new_tile_sz .- A.tile_size 
     new_core_sz = new_num_tiles .* new_tile_period .- A.tile_offset  # keep the overlap the same as before
     TiledView{T,ndims(A),length(A.tile_size)}(similar(A.parent, T, new_core_sz); tile_size=new_tile_sz, tile_period=new_tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
+    =# 
+    similar(A.parent, T, dims) # this returns an ordinary array, but this seems the only way to handle cases like: my_tiled_array[:,:,2,3] which expect a 2D array
 end
 # Array{eltype(A)}(undef, size...) 
 
