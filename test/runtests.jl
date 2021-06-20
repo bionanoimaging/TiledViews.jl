@@ -35,4 +35,26 @@ end
     @test [[(-60, -54), (20,-54)] [(-60, 37), (20,37)]] == tile_centers(a)
 end
 
+@testset "similar" begin
+    function compare_sizes(a)
+        b=similar(a);
+        print(size(a));print(size(b));size(b.parent)
+        @test all(size(a) .== size(b))
+        @test all(size(a.parent) .<= size(b.parent))
+        c=similar(a,Int64,size(b).+1)
+        @test all(size(c) .== size(a) .+1)
+        @test all(size(c.parent) .> size(a.parent))
+    end
+    for n in 1:40
+        dims = rand(1:5)
+        sz = Tuple(rand(3:7,dims))
+        ts = Tuple(rand(1:4,dims))
+        overlap = Tuple(rand(0:2,dims))
+        overlap = Tuple(((overlap[n] >= ts[n]) ? ts[n]-1 : overlap[n] for n in 1:length(ts)))
+        keep_ctr = rand(Bool)
+        a = TiledView(ones(sz...), ts, overlap, keep_center=keep_ctr);
+        compare_sizes(a)
+    end
+end
+
 return

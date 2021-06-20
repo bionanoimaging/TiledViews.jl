@@ -1,5 +1,7 @@
 module TiledViews
-using NDTools
+using IndexFunArrays # needed for the default window function.
+
+# using NDTools
 export TiledView, get_num_tiles, TiledWindowView, tile_centers, get_window, tiled_processing
 export get_num_tiles, get_tile_iterator, get_tile_number_iterator
 
@@ -12,7 +14,7 @@ struct TiledView{T, N, M, AA<:AbstractArray{T, M}} <: AbstractArray{T, N}
     # output size of the array 
     tile_size::NTuple{M, Int}
     tile_period::NTuple{M, Int}
-    tile_offset::NTuple{M, Int}
+    tile_offset::NTuple{M, Int}  # the distance from the wrapping arrray to the start of stored data
     pad_value::T
 
     # Constructor function
@@ -81,7 +83,7 @@ function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_over
 end
 
 function get_num_tiles(data::TiledView)
-    num_tiles = ((size(data.parent) .+ data.tile_offset .- 1) .÷ data.tile_period) .+ 1  
+    num_tiles = ((size(data.parent) .+ data.tile_offset .- 1) .÷ data.tile_period) .+ 1
     return num_tiles
 end
 
@@ -91,9 +93,17 @@ function Base.size(A::TiledView)
     return (A.tile_size...,(get_num_tiles(A))...)
 end
 
-# Base.similar(A::TiledView, ::Type{T}, size::Dims) where {T} = TiledView(A.parent, A.tile_size,  A.tile_period,  A.tile_offset)
-function Base.similar(A::TiledView, ::Type{T}) where {T}
-    TiledView{T,ndims(A),length(A.tile_size)}(similar(A.parent, T); tile_size=A.tile_size, tile_period=A.tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
+# Note that the similar function below will most of the times expand the overall required datasize
+function Base.similar(A::TiledView, ::Type{T}=eltype(A.parent), dims::Dims=size(A)) where {T}
+    # The first N coordinates are position within a tile, the second N coordinates are tile number
+    @show core_sz =  size(A.parent)
+    # @show tile_overlap = A.tile_size .- A.tile_period
+    N = length(A.tile_size)
+    @show new_tile_sz = dims[1:N]
+    @show new_num_tiles = dims[N + 1:end]
+    @show new_tile_period = A.tile_period .+ new_tile_sz .- A.tile_size 
+    @show new_core_sz = new_num_tiles .* new_tile_period .- A.tile_offset  # keep the overlap the same as before
+    TiledView{T,ndims(A),length(A.tile_size)}(similar(A.parent, T, new_core_sz); tile_size=new_tile_sz, tile_period=new_tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
 end
 # Array{eltype(A)}(undef, size...) 
 
@@ -134,7 +144,6 @@ Base.setindex!(A::TiledView{T,N}, v, I::Vararg{Int,N}) where {T,N} = begin
 end
 
 ## Some functions for generating useful tilings
-using IndexFunArrays
 
 """
     get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false);
