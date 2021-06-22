@@ -32,7 +32,7 @@ end
 @testset "Test tile_centers" begin
     q = rand(100,101);
     a=TiledView(q, (80,91), (0,0));
-    @test [[(-60, -54), (20,-54)] [(-60, 37), (20,37)]] == tile_centers(a)
+    @test [(-60, -54) (-60, 37);  (20, -54) (20, 37)] == tile_centers(a)
 end
 
 #=

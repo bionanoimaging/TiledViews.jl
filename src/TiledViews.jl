@@ -1,5 +1,6 @@
 module TiledViews
 using IndexFunArrays # needed for the default window function.
+using NDTools # for linear_index
 
 # using NDTools
 export TiledView, get_num_tiles, TiledWindowView, tile_centers, get_window, tiled_processing
@@ -93,6 +94,10 @@ function Base.size(A::TiledView)
     return (A.tile_size...,(get_num_tiles(A))...)
 end
 
+function zeros_like(A::TiledView, ::Type{T}=eltype(A.parent)) where {T}
+    TiledView{T,ndims(A),length(A.tile_size)}(zeros(T, size(A.parent)); tile_size=A.tile_size, tile_period=A.tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
+end
+
 # Note that the similar function below will most of the times expand the overall required datasize
 function Base.similar(A::TiledView, ::Type{T}=eltype(A.parent), dims::Dims=size(A)) where {T}
     # The first N coordinates are position within a tile, the second N coordinates are tile number
@@ -112,29 +117,24 @@ end
 # calculate the entry according to the index
 # Base.getindex(A::IndexFunArray{T,N}, I::Vararg{B, N}) where {T,N, B} = return A.generator(I)
 
-@inline function pos_from_tile(A, TilePos, TileNum)
-    TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period
+function pos_from_tile(A::TiledView{T,N}, TilePos::NTuple{M,Int}, TileNum::NTuple{M,Int}) where {T,N,M}
+    Tuple(TilePos[n] - A.tile_offset[n] + (TileNum[n]-1) * A.tile_period[n]  for n in 1:M)
 end
 
 # calculate the entry according to the index
-function Base.getindex(A::TiledView{T,N}, I::Vararg{Int, N}) where {T,N}
+Base.@propagate_inbounds function Base.getindex(A::TiledView{T,N,M,AA}, I::Vararg{Int, N})::T where {T,N,M,AA}
     @boundscheck checkbounds(A, I...)
-    TilePos = I[1:N÷2]  # referring to the positon inside a tile
-    TileNum = I[N÷2+1:end] # referring to the tile
-    pos = pos_from_tile(A, TilePos, TileNum)
-    # pos = TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period 
+    @inbounds pos = (I[n] - A.tile_offset[n] + (I[n+M].-1) * A.tile_period[n]  for n in 1:M)
     if Base.checkbounds(Bool, A.parent, pos...)
-        return Base.getindex(A.parent, pos... )
+        return Base.getindex(A.parent, pos...)::T
     else
-        return A.pad_value; 
+        return A.pad_value :: T; 
     end
 end
 
-Base.setindex!(A::TiledView{T,N}, v, I::Vararg{Int,N}) where {T,N} = begin 
+Base.setindex!(A::TiledView{T,N,M,AA}, v, I::Vararg{Int,N}) where {T,N,M,AA} = begin 
     @boundscheck checkbounds(A, I...)
-    TilePos = I[1:N÷2]
-    TileNum = I[N÷2+1:end]
-    pos = pos_from_tile(A, TilePos, TileNum)
+    @inbounds pos = (I[n] - A.tile_offset[n] + (I[n+M].-1) * A.tile_period[n]  for n in 1:M)
     # pos = TilePos .- A.tile_offset .+ (TileNum.-1) .* A.tile_period 
     if Base.checkbounds(Bool, A.parent, pos...)
         return setindex!(A.parent, v, pos... )
@@ -334,7 +334,7 @@ function tile_centers(A, scale=nothing)
     # ctr_tile = (num_tiles.÷2 .+1)
     tile_ctr = (size(A)[1:nd] .÷ 2) .+ 1
     if isnothing(scale)
-        [pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array for idx in CartesianIndices(num_tiles)]
+        [pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array for idx in CartesianIndices(num_tiles)]  # Only the "[" generate a 2D array
         # [(Tuple(idx).-1).* A.tile_period .+ ctr for idx in CartesianIndices(num_tiles)]
     else
         [scale .* (pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array) for idx in CartesianIndices(num_tiles)]
@@ -355,23 +355,20 @@ function get_tile_number_iterator(tiled_view::TiledView)
     return (Tuple(tn) for tn in CartesianIndices(get_num_tiles(tiled_view)))
 end
 
-function tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=nothing, window_function=window_hanning)
-    if isnothing(dtype)
-        res = similar(tiled_view)
-    else
-        res = similar(tiled_view, dtype)
-    end
-    res.parent .= 0.0
-    win = get_window(tiled_view, window_function=window_function)
+function tiled_processing(tiled_view::TiledView, fct; res_type = Float32, verbose=true, dtype=Float32, window_function=window_hanning)
+    @time res = zeros_like(tiled_view, res_type)
+    res.parent .= zero(dtype)
+    @time win = get_window(tiled_view, window_function=window_function)
     ttn = get_num_tiles(tiled_view)
     for (src, dest, tn) in zip(get_tile_iterator(tiled_view), get_tile_iterator(res), get_tile_number_iterator(res))
         if verbose
             perc = round(100 * (linear_index(tn, ttn)-1) ./ prod(ttn))
             print("processing tile $(tn) out of $(ttn), $(perc)%\n")
         end
+        size(src)
         res_tile = fct(collect(src))
         dest .+= win .* res_tile
-    end
+    end 
     return res
 end
 
