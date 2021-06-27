@@ -355,6 +355,11 @@ function get_tile_number_iterator(tiled_view::TiledView)
     return (Tuple(tn) for tn in CartesianIndices(get_num_tiles(tiled_view)))
 end
 
+
+"""
+    tiled_processing(tiled_view::TiledView, fct; res_type = Float32, verbose=true, dtype=Float32, window_function=window_hanning)
+    processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
+"""
 function tiled_processing(tiled_view::TiledView, fct; res_type = Float32, verbose=true, dtype=Float32, window_function=window_hanning)
     @time res = zeros_like(tiled_view, res_type)
     res.parent .= zero(dtype)
