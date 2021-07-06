@@ -146,7 +146,7 @@ end
 ## Some functions for generating useful tilings
 
 """
-    get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false);
+    get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false, offset = CtrFT);
 
 Calculates a window matching to the `TiledView`.
 
@@ -160,6 +160,8 @@ not necessarily undergo all required window operations. In a future version it m
 to automatically lay out the windowing such that this effect can be avoided.
 
 `verbose`. If true, diagnostic information on the window layout is printed.
+
+`offset`. defines where the center of the window is placed. See `IndexFunArrays.jl` for details.
 
 # Returns
 `matching_window`. a window that can be applied to the view via multiplication myview.*matching_window
@@ -188,7 +190,7 @@ julia> win
 
  see TiledWindowView() for more examples.
 """
-function get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false)
+function get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false, offset=CtrFT)
     tile_size = A.tile_size
     tile_pitch = A.tile_period
     tile_overlap = tile_size .- tile_pitch
@@ -199,18 +201,17 @@ function get_window(A::TiledView; window_function=window_hanning, get_norm=false
         print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
         print("Window starts at $winstart and ends at $winend.\n")
     end
-    myCtr = CtrFT;
     if get_norm == false
         return window_function(tile_size; 
-            scale=ScaUnit, offset=myCtr,
+            scale=ScaUnit, offset=offset,
             border_in=winstart, border_out= winend)
     else
         normalization = ones(Float32,size(data))
         my_view = TiledView(normalization,tile_size, tile_overlap)
         normalization .= 0
-        my_view .+= A .*window_function(tile_size;scale=ScaUnit, offset=myCtr, border_in=winstart, border_out= winend)        
+        my_view .+= A .*window_function(tile_size;scale=ScaUnit, offset=offset, border_in=winstart, border_out= winend)        
         return (window_function(tile_size; 
-            scale=ScaUnit, offset=myCtr,
+            scale=ScaUnit, offset=offset,
             border_in=winstart, border_out= winend), normalization)
     end
 end
@@ -218,7 +219,7 @@ end
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
     rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
-    window_function=window_hanning, get_norm=false, verbose=false) where {T, M}
+    window_function=window_hanning, get_norm=false, verbose=false, offset=CtrFT) where {T, M}
 
 Creates an 2N dimensional view of the data by tiling the N-dimensional data as 
 specified by tile_size, tile_overlap and optionally tile_center.
@@ -245,6 +246,8 @@ not necessarily undergo all required window operations. In a future version it m
 to automatically lay out the windowing such that this effect can be avoided.
 
 `verbose`. If true, diagnostic information on the window layout is printed.
+
+`offset`. defines where the center of the window is placed. See `IndexFunArrays.jl` for details.
 
 # Returns
 myview, matching_window = TiledWindowView ...
@@ -313,10 +316,10 @@ julia> myview, matching_window, normalized = TiledWindowView(rand(10,10).+0, (5,
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
                          rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
-                         window_function=window_hanning, get_norm=false, verbose=false, keep_center=true) where {T, M}
+                         window_function=window_hanning, get_norm=false, verbose=false, keep_center=true, offset=CtrFT) where {T, M}
     tile_overlap = round.(Int,tile_size./2.0 .* rel_overlap)
     changeable = TiledView(data,tile_size, tile_overlap, keep_center=keep_center);
-    win = get_window(changeable, window_function= window_function, get_norm=get_norm, verbose=verbose)
+    win = get_window(changeable, window_function= window_function, get_norm=get_norm, verbose=verbose, offset=offset)
     if get_norm
         return (changeable, win...)
     else
