@@ -153,7 +153,7 @@ Calculates a window matching to the `TiledView`.
 `window_function`. The window function as defined in IndexFunArrays to apply to the TiledView.
 The result is currently not any longer a view as it is unclear how to wrap the multiplication into a view.
 For this reason the TiledView without the window applied is also returned and can be used for assignments.
-By default a von Hann window (window_hanning) is used.
+By default a von Hann window (window_hanning) is used. For even sizes the window is centered at the integer coordinate right of the middle position (`CtrFT`).
 
 `get_norm`. An optional Boolean argument allowing to also obtain the normalization map for the boarder pixels, which
 not necessarily undergo all required window operations. In a future version it may be possible
@@ -199,17 +199,18 @@ function get_window(A::TiledView; window_function=window_hanning, get_norm=false
         print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
         print("Window starts at $winstart and ends at $winend.\n")
     end
+    myCtr = CtrFT;
     if get_norm == false
         return window_function(tile_size; 
-            scale=ScaUnit, offset=CtrMid,
+            scale=ScaUnit, offset=myCtr,
             border_in=winstart, border_out= winend)
     else
         normalization = ones(Float32,size(data))
         my_view = TiledView(normalization,tile_size, tile_overlap)
         normalization .= 0
-        my_view .+= A .*window_function(tile_size;scale=ScaUnit, offset=CtrMid, border_in=winstart, border_out= winend)        
+        my_view .+= A .*window_function(tile_size;scale=ScaUnit, offset=myCtr, border_in=winstart, border_out= winend)        
         return (window_function(tile_size; 
-            scale=ScaUnit, offset=CtrMid,
+            scale=ScaUnit, offset=myCtr,
             border_in=winstart, border_out= winend), normalization)
     end
 end
