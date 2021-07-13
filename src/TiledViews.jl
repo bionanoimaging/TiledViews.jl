@@ -384,11 +384,11 @@ end
 
 
 """
-    tiled_processing(tiled_view::TiledView, fct; res_type = Float32, verbose=true, dtype=Float32, window_function=window_hanning)
+    tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=eltype(tiled_view.parent), window_function=window_hanning)
     processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
 """
-function tiled_processing(tiled_view::TiledView, fct; res_type = Float32, verbose=true, dtype=Float32, window_function=window_hanning)
-    @time res = zeros_like(tiled_view, res_type)
+function tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=eltype(tiled_view.parent), window_function=window_hanning)
+    @time res = zeros_like(tiled_view, dtype)
     res.parent .= zero(dtype)
     @time win = get_window(tiled_view, window_function=window_function)
     ttn = get_num_tiles(tiled_view)
@@ -404,7 +404,11 @@ function tiled_processing(tiled_view::TiledView, fct; res_type = Float32, verbos
     return res
 end
 
-function tiled_processing(data, fct, tile_size, tile_overlap; verbose=true, dtype=nothing, keep_center=false, window_function=window_hanning)
+"""
+    tiled_processing(data, fct; verbose=true, dtype=eltype(data), window_function=window_hanning)
+    processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
+"""
+function tiled_processing(data, fct, tile_size, tile_overlap; verbose=true, dtype=eltype(data), keep_center=false, window_function=window_hanning)
     tiles = TiledView(data, tile_size, tile_overlap, keep_center=keep_center);
     return tiled_processing(tiles,fct; verbose=verbose, dtype=dtype, window_function=window_function)
 end

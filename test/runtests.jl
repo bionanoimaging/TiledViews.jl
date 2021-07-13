@@ -80,7 +80,9 @@ end
     #tiles[:,:,:,:] .+= to_write[:,:,:,:] ;  # why can one NOT use [:,:,:,:]? 
     tiles .+= to_write ;  # why can one NOT use [:,:,:,:]? 
     @test sum(abs.(dest[50:end-50,50:end-50] .- 1.2)) < 1e-10
-    win2, mynorm = get_window(tiles, get_norm=true);
+    win2, mynorm = get_window(tiles, get_norm=true, verbose=true);
+    @test all(win .== win2)
+    tiles, win = TiledWindowView(dest, tile_size, rel_overlap=(1.0,1.0), get_norm=true);
     @test all(win .== win2)
 end
 
@@ -93,7 +95,7 @@ end
 @testset "eachtile" begin
     q = zeros(100,101);
     a=TiledView(q, (80,91), (0,0));
-    for (t,tn,tc) in zip(eachtile(a),eachtilenumber(a),eachtilerelpos(a))
+    for (t,tn,tc,tc2) in zip(eachtile(a),eachtilenumber(a),eachtilerelpos(a),eachtilerelpos(a,2.0))
         t[:] .+= tn[1];
     end
     @test q[end,end] == 2
@@ -102,8 +104,8 @@ end
 @testset "tiled_processing" begin
     q = ones(10,10,10);
     a = TiledView(q, (4,4,4), (2,2,2));
-    fkt(a)=sin.(a)
-    res = tiled_processing(a,fkt);
+    fct(a)=sin.(a)
+    res = tiled_processing(q, fct, (4,4,4), (2,2,2))
     @test maximum(res.parent) ≈ sin(1)
 end
 
