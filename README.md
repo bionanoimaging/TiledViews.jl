@@ -14,7 +14,7 @@ julia> size(a)
 ```
 [![codecov](https://codecov.io/gh/bionanoimaging/TiledViews.jl/branch/main/graph/badge.svg?token=910XO9N4NO)](https://codecov.io/gh/bionanoimaging/TiledViews.jl)
 
-[![CI](https://github.com/RainerHeintzmann/View5D.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/RainerHeintzmann/TiledViews.jl/actions/workflows/ci.yml)
+[![CI](https://github.com/RainerHeintzmann/TiledViews.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/RainerHeintzmann/TiledViews.jl/actions/workflows/ci.yml)
 
 | **Documentation**                       | **Build Status**                          | **Code Coverage**               |
 |:---------------------------------------:|:-----------------------------------------:|:-------------------------------:|
