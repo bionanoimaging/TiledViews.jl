@@ -13,12 +13,17 @@ julia> size(a)
 (4, 4, 3, 3)
 ```
 
+[![codecov](https://codecov.io/gh/RainerHeintzmann/View5D.jl/branch/master/graph/badge.svg?token=2Ayxc30CAR)](https://codecov.io/gh/RainerHeintzmann/TiledViews.jl)
+[![CI](https://github.com/RainerHeintzmann/View5D.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/RainerHeintzmann/TiledViews.jl/actions/workflows/ci.yml)
 
 | **Documentation**                       | **Build Status**                          | **Code Coverage**               |
 |:---------------------------------------:|:-----------------------------------------:|:-------------------------------:|
 | [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url] | [![][CI-img]][CI-url] | [![][codecov-img]][codecov-url] |
 
 
+The toolbox also offers support for iterators on the tiles via the functions `eachtile()`, `eachtilenumber()`, and `eachtilerelpos()`.
+A very convenient way of processing all tiles with a user-supplied function and fusing the images automatically via window-based weighting is using
+the function `tiled_processing()`.
 
 ## Installation
 Type `]`in the REPL to get to the package manager and install it:
