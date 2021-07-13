@@ -14,11 +14,7 @@ julia> size(a)
 ```
 [![codecov](https://codecov.io/gh/bionanoimaging/TiledViews.jl/branch/main/graph/badge.svg?token=910XO9N4NO)](https://codecov.io/gh/bionanoimaging/TiledViews.jl)
 
-[![CI](https://github.com/bionanoimaging/TiledViews.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/bionanoimaging/TiledViews.jl/actions/workflows/ci.yml)
-
-| **Documentation**                       | **Build Status**                          | **Code Coverage**               |
-|:---------------------------------------:|:-----------------------------------------:|:-------------------------------:|
-| [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url] | [![][CI-img]][CI-url] | [![][codecov-img]][codecov-url] |
+[![.github/workflows/ci.yml](https://github.com/bionanoimaging/TiledViews.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/bionanoimaging/TiledViews.jl/actions/workflows/ci.yml)
 
 
 The toolbox also offers support for iterators on the tiles via the functions `eachtile()`, `eachtilenumber()`, and `eachtilerelpos()`.
