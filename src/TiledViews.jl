@@ -98,6 +98,10 @@ function zeros_like(A::TiledView, ::Type{T}=eltype(A.parent)) where {T}
     TiledView{T,ndims(A),length(A.tile_size)}(zeros(T, size(A.parent)); tile_size=A.tile_size, tile_period=A.tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
 end
 
+function ones_like(A::TiledView, ::Type{T}=eltype(A.parent)) where {T}
+    TiledView{T,ndims(A),length(A.tile_size)}(ones(T, size(A.parent)); tile_size=A.tile_size, tile_period=A.tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
+end
+
 # Note that the similar function below will most of the times expand the overall required datasize
 function Base.similar(A::TiledView, ::Type{T}=eltype(A.parent), dims::Dims=size(A)) where {T}
     # The first N coordinates are position within a tile, the second N coordinates are tile number
@@ -206,8 +210,8 @@ function get_window(A::TiledView; window_function=window_hanning, get_norm=false
             scale=ScaUnit, offset=offset,
             border_in=winstart, border_out= winend)
     else
-        normalization = ones(Float32,size(data))
-        my_view = TiledView(normalization,tile_size, tile_overlap)
+        my_view = ones_like(A)
+        normalization = A.parent
         normalization .= 0
         my_view .+= A .*window_function(tile_size;scale=ScaUnit, offset=offset, border_in=winstart, border_out= winend)        
         return (window_function(tile_size; 

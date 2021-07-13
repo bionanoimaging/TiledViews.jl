@@ -9,7 +9,6 @@ using TiledViews
     @test a[4,4,1,1] == 1
 end
 
-
 @testset "Check errors" begin
     a = TiledView(reshape(1:49,(7,7)), (4, 4),(0, 0));
     @test_throws BoundsError a[0,1,1,1]
@@ -58,6 +57,13 @@ end
     end
 end
 =#
+@testset "zeros_like" begin
+    q = rand(100,101);
+    a=TiledView(q, (80,91), (0,0), keep_center=false);
+    w = TiledViews.zeros_like(a)
+    @test size(w) == size(a)
+end
+
 @testset "similar" begin
     q = rand(100,101);
     a=TiledView(q, (80,91), (0,0));
@@ -74,12 +80,31 @@ end
     #tiles[:,:,:,:] .+= to_write[:,:,:,:] ;  # why can one NOT use [:,:,:,:]? 
     tiles .+= to_write ;  # why can one NOT use [:,:,:,:]? 
     @test sum(abs.(dest[50:end-50,50:end-50] .- 1.2)) < 1e-10
+    win2, mynorm = get_window(tiles, get_norm=true);
+    @test all(win .== win2)
 end
 
 @testset "sub-indexing" begin
     q = rand(100,101);
     a=TiledView(q, (80,91), (0,0));
     @test size(a[:,3:14,1:2,1]) == (80,12,2)
+end
+
+@testset "eachtile" begin
+    q = zeros(100,101);
+    a=TiledView(q, (80,91), (0,0));
+    for (t,tn,tc) in zip(eachtile(a),eachtilenumber(a),eachtilerelpos(a))
+        t[:] .+= tn[1];
+    end
+    @test q[end,end] == 2
+end
+
+@testset "tiled_processing" begin
+    q = ones(10,10,10);
+    a = TiledView(q, (4,4,4), (2,2,2));
+    fkt(a)=sin.(a)
+    res = tiled_processing(a,fkt);
+    @test maximum(res.parent) ≈ sin(1)
 end
 
 return
