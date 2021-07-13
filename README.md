@@ -12,7 +12,8 @@ julia> a = TiledView(reshape(1:49,(7,7)), (4, 4),(1, 1));
 julia> size(a)
 (4, 4, 3, 3)
 ```
-[![codecov](https://codecov.io/gh/RainerHeintzmann/View5D.jl/branch/master/graph/badge.svg?token=2b1668f2-6a60-4065-9522-5d6d75f49f16)](https://codecov.io/gh/RainerHeintzmann/TiledViews.jl)
+[![codecov](https://codecov.io/gh/bionanoimaging/TiledViews.jl/branch/main/graph/badge.svg?token=910XO9N4NO)](https://codecov.io/gh/bionanoimaging/TiledViews.jl)
+
 [![CI](https://github.com/RainerHeintzmann/View5D.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/RainerHeintzmann/TiledViews.jl/actions/workflows/ci.yml)
 
 | **Documentation**                       | **Build Status**                          | **Code Coverage**               |
