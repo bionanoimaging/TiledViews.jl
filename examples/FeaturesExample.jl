@@ -15,7 +15,7 @@ typeof(dest)
 # Define a function that does the work
 do_normalize(tile) = 0.5 .+ 0.5.*(tile .- mean(tile))./ std(tile) ;
 
-for (src, dst) in zip(get_tile_iterator(myview), get_tile_iterator(dest))
+for (src, dst) in zip(eachtile(myview), eachtile(dest))
     dst .= do_normalize(src)
 end
 Gray.(dest.parent)
@@ -26,7 +26,7 @@ Gray.(my_window)
 typeof(my_window)   # This is actually an IndexFunArray (~ no memory needed)
 
 dest2 = TiledViews.zeros_like(myview); # just to make a new view to copy into
-for (src, dst) in zip(get_tile_iterator(myview), get_tile_iterator(dest2))
+for (src, dst) in zip(eachtile(myview), eachtile(dest2))
     dst .+= my_window .* do_normalize(src);
 end
 Gray.(dest.parent)

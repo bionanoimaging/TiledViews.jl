@@ -4,7 +4,7 @@ using NDTools # for linear_index
 
 # using NDTools
 export TiledView, get_num_tiles, TiledWindowView, tile_centers, get_window, tiled_processing
-export get_num_tiles, get_tile_iterator, get_tile_number_iterator
+export get_num_tiles, eachtile, eachtilenumber, eachtilerelpos
 
 tuple_len(::NTuple{N, Any}) where {N} = Val{N}()
 
@@ -329,33 +329,52 @@ end
 
 """
     tile_centers(A, scale=nothing)
-returns the relative center coordinates of integer tile centers with respect to the integer center `1 .+ size(A) .÷ 2 ` 
+    returns the relative center coordinates of integer tile centers with respect to the integer center `1 .+ size(A) .÷ 2 ` 
+    The tuple `scale` is used to multiply the relative position with a physical pixelsize.
+    See also: `eachtilerelpos` for a corresponding iterator
 """
 function tile_centers(A, scale=nothing)
+    return collect(eachtilerelpos(A, scale))
+end
+
+"""
+    eachtilerelpos(A, scale=nothing)
+    returns a generator that iterates through the relative distance of each tile center `1 .+ size(A).÷2` to the center of the the untiled parent array `1 .+ size(parent).÷2` 
+    The tuple `scale` is used to multiply the relative position with a physical pixelsize.
+"""
+function eachtilerelpos(A, scale=nothing)
     nd = ndims(A)/2
     ctr_array = (size(A.parent) .÷ 2) .+ 1 # center of the parent array
     num_tiles = size(A)[end-nd+1:end]
     # ctr_tile = (num_tiles.÷2 .+1)
     tile_ctr = (size(A)[1:nd] .÷ 2) .+ 1
     if isnothing(scale)
-        [pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array for idx in CartesianIndices(num_tiles)]  # Only the "[" generate a 2D array
+        (pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array for idx in CartesianIndices(num_tiles))  # Only the "[" generate a 2D array
         # [(Tuple(idx).-1).* A.tile_period .+ ctr for idx in CartesianIndices(num_tiles)]
     else
-        [scale .* (pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array) for idx in CartesianIndices(num_tiles)]
+        (scale .* (pos_from_tile(A, tile_ctr, Tuple(idx)) .- ctr_array) for idx in CartesianIndices(num_tiles))
     end
 end
 
-# ToDo: prevent set_index in windows or just pass it through
-
-function get_tile_iterator(tiled_view::TiledView)
+"""
+    eachtile(tiled_view::TiledView)
+    returns an iterator which iterates through all tiles. Depending on your application you may also want to use
+    `tiled_processing` for a convenient way to apply a function to each tile and join all tiles back together.
+    If you need simultaneous access to the tiles and tile numbers, you can also use `eachtilenumber`.
+"""
+function eachtile(tiled_view::TiledView)
     nd = ndims(tiled_view)÷2
     nz = ((size(tiled_view)[1:nd])..., prod(size(tiled_view)[nd+1:end]))
     reshaped = reshape(tiled_view, nz)
     return eachslice(reshaped, dims=nd+1)
 end
 
-
-function get_tile_number_iterator(tiled_view::TiledView)
+"""
+    eachtilenumber(tiled_view::TiledView)
+    returns an iterator iterating though all the tile numbers. If you need access to the tiles themselves, use 
+    `eachtile`
+"""
+function eachtilenumber(tiled_view::TiledView)
     return (Tuple(tn) for tn in CartesianIndices(get_num_tiles(tiled_view)))
 end
 
@@ -369,7 +388,7 @@ function tiled_processing(tiled_view::TiledView, fct; res_type = Float32, verbos
     res.parent .= zero(dtype)
     @time win = get_window(tiled_view, window_function=window_function)
     ttn = get_num_tiles(tiled_view)
-    for (src, dest, tn) in zip(get_tile_iterator(tiled_view), get_tile_iterator(res), get_tile_number_iterator(res))
+    for (src, dest, tn) in zip(eachtile(tiled_view), eachtile(res), eachtilenumber(res))
         if verbose
             perc = round(100 * (linear_index(tn, ttn)-1) ./ prod(ttn))
             print("processing tile $(tn) out of $(ttn), $(perc)%\n")
