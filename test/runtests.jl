@@ -4,9 +4,9 @@ using TiledViews
 
 @testset "testing array access" begin
     a = TiledView(reshape(1:49,(7,7)), (4, 4),(0, 0));
-    @test size(a) == (4,4,3,3)
+    @test size(a) == (4,4,2,2)
     @test a[1,1,1,1] == 0   
-    @test a[4,4,1,1] == 1
+    @test a[4,4,1,1] == 17
 end
 
 @testset "Check errors" begin
@@ -31,7 +31,7 @@ end
 @testset "Test tile_centers" begin
     q = rand(100,101);
     a=TiledView(q, (80,91), (0,0));
-    @test [(-60, -54) (-60, 37);  (20, -54) (20, 37)] == tile_centers(a)
+    @test [(-20, -10) (-20, 81);  (60, -10) (60, 81)] == tile_centers(a)
 end
 
 #=

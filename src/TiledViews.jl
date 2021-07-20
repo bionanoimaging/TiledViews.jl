@@ -37,7 +37,7 @@ function center(data)
 end
 
 """
-    TiledView([T], data::F, tile_size::NTuple{N,Int}, tile_overlap::NTuple{N,Int}; pad_value::T)
+    TiledView(data::F, tile_size::NTuple{N,Int}, tile_overlap::NTuple{N,Int}, tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1); pad_value::T, keep_center=true)
 
 Creates an 2N dimensional view of the data by tiling the N-dimensional data as 
 specified by tile_size, tile_overlap and optionally tile_center.
@@ -48,10 +48,13 @@ the raw data can be accessed via myview.parent.
 `tile_size`. A Tuple describing the size of each tile. This size will form the first N dimensions of the
 result of size(myview). The second N dimensions refer to N-dimensional tile numbering.
 
-`rel_overlap`. Tuple specifying the relative overlap between successive tiles in voxels. This implicitely
-defines the pitch between tiles as (tile_size .- rel_overlap).
+`tile_overlap`. Tuple specifying the overlap between successive tiles in voxels. This implicitely
+defines the pitch between tiles as (tile_size .- tile_overlap).
 
-`pad_value`. Specifies the answer that is returned when get_index is applied to a position outside the source array
+`pad_value`. Specifies the answer that is returned when get_index is applied to a position outside the source array.
+
+`keep_center`.  This boolean specifies whether the center of the parant `data` will be aligned with the center of the central tile. If `false`, the first tile starts at offset zero.
+`tile_center`.  Only used if `keep_center` is true. It defines the center position in the central tile. The default is `tile_size .÷ 2 .+1`.
 
 # Examples
 ```jldoctest
@@ -70,7 +73,7 @@ julia> a.parent
 ```
 """
 function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int}=tile_size .* 0,
-                   tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1); pad_value=nothing, keep_center=true) where {T, M}
+                   tile_center::NTuple{M,Int} = (tile_size .÷ 2 .+1); pad_value=nothing, keep_center=true) where {T, M}
     # Note that N refers to the original number of dimensions
     tile_period = tile_size .- tile_overlap
     if keep_center
@@ -237,8 +240,7 @@ the raw data can be accessed via myview.parent.
 `tile_size`. A Tuple describing the size of each tile. This size will form the first N dimensions of the
 result of size(myview). The second N dimensions refer to N-dimensional tile numbering.
 
-`rel_overlap`. Tuple specifying the relative overlap between successive tiles in voxels. This implicitely
-defines the pitch between tiles as (tile_size .- rel_overlap).
+`rel_overlap`. Tuple specifying the relative overlap between successive tiles. The absolute overlap is then calculated as `round.(Int,tile_size./2.0 .* rel_overlap)`.
 
 `window_function`. The window function as defined in IndexFunArrays to apply to the TiledView.
 The result is currently not any longer a view as it is unclear how to wrap the multiplication into a view.
