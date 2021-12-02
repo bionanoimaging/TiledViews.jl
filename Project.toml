@@ -11,7 +11,7 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
 IndexFunArrays = "0.2.1"
-NDTools = "0.1, 0.2, 0.3"
+NDTools = "0.1, 0.2, 0.3, 0.4.0"
 julia = "1.6"
 
 [extras]
