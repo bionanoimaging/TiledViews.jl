@@ -24,5 +24,5 @@ the function `tiled_processing()`.
 ## Installation
 Type `]`in the REPL to get to the package manager and install it:
 ```julia
-julia> ] add https://github.com/bionanoimaging/TiledViews.jl
+julia> ] add TiledViews
 ```
