@@ -77,7 +77,7 @@ function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_over
     tile_period = tile_size .- tile_overlap
     tile_offset = let
         if keep_center
-            @show data_center = center(data)
+            data_center = center(data)
             tile_period .- mod.((data_center .- tile_center), tile_period)
         else
             tile_period .* 0
@@ -221,8 +221,8 @@ function get_window(A::TiledView; window_function=window_hanning, get_norm=false
     winend = (tile_size ./ 2.0)
     winstart = (winend .- tile_overlap)
     if verbose
-        print("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
-        print("Window starts at $winstart and ends at $winend.\n")
+        @info("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
+        @info("Window starts at $winstart and ends at $winend.\n")
     end
     if get_norm == false
         return window_function(tile_size; 
