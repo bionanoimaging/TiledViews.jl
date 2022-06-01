@@ -337,9 +337,11 @@ end
 
 """
     tile_centers(A, scale=nothing)
-    returns the relative center coordinates of integer tile centers with respect to the integer center `1 .+ size(A) .÷ 2 ` 
-    The tuple `scale` is used to multiply the relative position with a physical pixelsize.
-    See also: `eachtilerelpos` for a corresponding iterator
+
+
+Returns the relative center coordinates of integer tile centers with respect to the integer center `1 .+ size(A) .÷ 2 ` 
+The tuple `scale` is used to multiply the relative position with a physical pixelsize.
+See also: `eachtilerelpos` for a corresponding iterator
 """
 function tile_centers(A, scale=nothing)
     return collect(eachtilerelpos(A, scale))
@@ -347,8 +349,11 @@ end
 
 """
     eachtilerelpos(A, scale=nothing)
-    returns a generator that iterates through the relative distance of each tile center `1 .+ size(A).÷2` to the center of the the untiled parent array `1 .+ size(parent).÷2` 
-    The tuple `scale` is used to multiply the relative position with a physical pixelsize.
+ 
+ 
+Returns a generator that iterates through the relative distance of each tile center `1 .+ size(A).÷2` to the 
+center of the the untiled parent array `1 .+ size(parent).÷2` 
+The tuple `scale` is used to multiply the relative position with a physical pixelsize.
 """
 function eachtilerelpos(A, scale=nothing)
     nd = ndims(A)/2
@@ -366,9 +371,10 @@ end
 
 """
     eachtile(tiled_view::TiledView)
-    returns an iterator which iterates through all tiles. Depending on your application you may also want to use
-    `tiled_processing` for a convenient way to apply a function to each tile and join all tiles back together.
-    If you need simultaneous access to the tiles and tile numbers, you can also use `eachtilenumber`.
+ 
+Returns an iterator which iterates through all tiles. Depending on your application you may also want to use
+`tiled_processing` for a convenient way to apply a function to each tile and join all tiles back together.
+If you need simultaneous access to the tiles and tile numbers, you can also use `eachtilenumber`.
 """
 function eachtile(tiled_view::TiledView)
     nd = ndims(tiled_view)÷2
@@ -379,8 +385,9 @@ end
 
 """
     eachtilenumber(tiled_view::TiledView)
-    returns an iterator iterating though all the tile numbers. If you need access to the tiles themselves, use 
-    `eachtile`
+
+Returns an iterator iterating though all the tile numbers. If you need access to the tiles themselves, use 
+`eachtile`
 """
 function eachtilenumber(tiled_view::TiledView)
     return (Tuple(tn) for tn in CartesianIndices(get_num_tiles(tiled_view)))
@@ -389,7 +396,8 @@ end
 
 """
     tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=eltype(tiled_view.parent), window_function=window_hanning)
-    processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
+ 
+Processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
 """
 function tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=eltype(tiled_view.parent), window_function=window_hanning)
     @time res = zeros_like(tiled_view, dtype)
@@ -410,7 +418,8 @@ end
 
 """
     tiled_processing(data, fct; verbose=true, dtype=eltype(data), window_function=window_hanning)
-    processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
+ 
+Processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
 """
 function tiled_processing(data, fct, tile_size, tile_overlap; verbose=true, dtype=eltype(data), keep_center=false, window_function=window_hanning)
     tiles = TiledView(data, tile_size, tile_overlap, keep_center=keep_center);

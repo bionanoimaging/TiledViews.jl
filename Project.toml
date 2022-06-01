@@ -1,7 +1,7 @@
 name = "TiledViews"
 uuid = "ab21d65a-3167-428d-8ea2-d01236aa30f2"
 authors = ["rheintzmann <heintzmann@gmail.com>"]
-version = "0.2.0"
+version = "0.2.1"
 
 [deps]
 IndexFunArrays = "613c443e-d742-454e-bfc6-1d7f8dd76566"
@@ -10,9 +10,9 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
-IndexFunArrays = "0.2.1"
-NDTools = "0.1, 0.2, 0.3, 0.4.0"
-julia = "1.6"
+IndexFunArrays = "0.2.4"
+NDTools = "0.4"
+julia = "1, 1.6, 1.7"
 
 [extras]
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
