@@ -52,7 +52,7 @@ specified by tile_size, tile_overlap and optionally tile_center.
 
 ## Keyword Argument
 * `pad_value`: Specifies the answer that is returned when get_index is applied to a position outside the source array.
-* `keep_center`:  This boolean specifies whether the center of the parant `data` will be aligned with the center of the central tile. If `false`, the first tile starts at offset zero.
+* `keep_center`:  This boolean specifies whether the center of the parent `data` will be aligned with the center of the central tile. If `false`, the first tile starts at offset zero.
 * `tile_center`:  Only used if `keep_center` is true. It defines the center position in the central tile. The default is `tile_size .÷ 2 .+1`.
 
 # Examples
