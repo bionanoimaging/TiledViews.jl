@@ -21,40 +21,39 @@ struct TiledView{T, N, M, AA<:AbstractArray{T, M}} <: AbstractArray{T, N}
     # Constructor function
     function TiledView{T, N, M}(data::AA; tile_size::NTuple{M,Int}, tile_period::NTuple{M,Int}, tile_offset::NTuple{M,Int}, pad_value=nothing) where {T,M,N,AA}
         if isnothing(pad_value)
-        if T <: NTuple
-            pad_value = T(Base.Iterators.repeated(0))
-        # elseif T <: AbstractArray            
-        else
-            pad_value = convert(T,0)  # this may crash, but then the user should specify a valid pad_value
-        end
+            if T <: NTuple
+                pad_value = T(Base.Iterators.repeated(0))
+            # elseif T <: AbstractArray            
+            else
+                pad_value = convert(T,0)  # this may crash, but then the user should specify a valid pad_value
+            end
         end
         return new{T, N, M, AA}(data, tile_size, tile_period, tile_offset, pad_value) 
     end
 end
 
 function center(data)
-    return size(data) .÷2 .+1
+    return size(data) .÷ 2 .+1
 end
 
 """
-    TiledView(data::F, tile_size::NTuple{N,Int}, tile_overlap::NTuple{N,Int}, tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+1); pad_value::T, keep_center=true)
+    TiledView(data::F, tile_size::NTuple{N,Int}, 
+              tile_overlap::NTuple{N,Int} = tile_size .* 0, 
+              tile_center::NTuple{M,Int} = (mod.(tile_size,2) .+ 1)
+              ; pad_value::T, keep_center=true)
 
 Creates an 2N dimensional view of the data by tiling the N-dimensional data as 
 specified by tile_size, tile_overlap and optionally tile_center.
 
-`data`. the inputdata to decompose into a TiledView. No copies are made for the TiledView and
-the raw data can be accessed via myview.parent.
+## Arguments
+* `data`: the input data to decompose into a TiledView. No copies are made for the `TiledView` and the raw data can be accessed via `.parent`.
+* `tile_size`: A Tuple describing the size of each tile. This size will form the first N dimensions of the result of `size(myview)`. The second N dimensions refer to N-dimensional tile numbering.
+* `tile_overlap`: Tuple specifying the overlap between successive tiles in voxels. This implicitely defines the pitch between tiles as `(tile_size .- tile_overlap)`.
 
-`tile_size`. A Tuple describing the size of each tile. This size will form the first N dimensions of the
-result of size(myview). The second N dimensions refer to N-dimensional tile numbering.
-
-`tile_overlap`. Tuple specifying the overlap between successive tiles in voxels. This implicitely
-defines the pitch between tiles as (tile_size .- tile_overlap).
-
-`pad_value`. Specifies the answer that is returned when get_index is applied to a position outside the source array.
-
-`keep_center`.  This boolean specifies whether the center of the parant `data` will be aligned with the center of the central tile. If `false`, the first tile starts at offset zero.
-`tile_center`.  Only used if `keep_center` is true. It defines the center position in the central tile. The default is `tile_size .÷ 2 .+1`.
+## Keyword Argument
+* `pad_value`: Specifies the answer that is returned when get_index is applied to a position outside the source array.
+* `keep_center`:  This boolean specifies whether the center of the parant `data` will be aligned with the center of the central tile. If `false`, the first tile starts at offset zero.
+* `tile_center`:  Only used if `keep_center` is true. It defines the center position in the central tile. The default is `tile_size .÷ 2 .+1`.
 
 # Examples
 ```jldoctest
@@ -72,8 +71,8 @@ julia> a.parent
 (4, 4, 3, 3)
 ```
 """
-function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int}=tile_size .* 0,
-                   tile_center::NTuple{M,Int} = (tile_size .÷ 2 .+1); pad_value=nothing, keep_center=true) where {T, M}
+function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_overlap::NTuple{M,Int} = tile_size .* 0,
+                   tile_center::NTuple{M,Int} = (tile_size .÷ 2 .+ 1); pad_value=nothing, keep_center=true) where {T, M}
     # Note that N refers to the original number of dimensions
     tile_period = tile_size .- tile_overlap
     if keep_center
@@ -86,6 +85,12 @@ function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_over
     return TiledView{T,N,M}(data; tile_size=tile_size, tile_period=tile_period, tile_offset=tile_offset, pad_value=pad_value)
 end
 
+
+"""
+    get_num_tiles(data::TiledView)
+
+Returns the number of tiles
+"""
 function get_num_tiles(data::TiledView)
     num_tiles = ((size(data.parent) .+ data.tile_offset .- 1) .÷ data.tile_period) .+ 1
     return num_tiles
@@ -93,8 +98,14 @@ end
 
 # define AbstractArray function to allow to treat the generator as an array
 # See https://docs.julialang.org/en/v1/manual/interfaces/#man-interface-array
+"""
+    Base.size(A::TiledView)
+
+Returns the size of the `TiledView`.
+See [`TiledView`](@ref) for how the size is determined.
+"""
 function Base.size(A::TiledView)
-    return (A.tile_size...,(get_num_tiles(A))...)
+    return (A.tile_size..., (get_num_tiles(A))...)
 end
 
 function zeros_like(A::TiledView, ::Type{T}=eltype(A.parent)) where {T}
@@ -182,7 +193,9 @@ as well as using windows which do not sum up to one in the tiling process.
 # Examples
 ```jldoctest
 julia> data = ones(10,10).+0.0;
+
 julia> myview = TiledView(data, (5, 5), (2,2));
+
 julia> win = get_window(myview, verbose=true);
 Tiles with pitch (3, 3) overlap by (2, 2) pixels.
 Window starts at (0.5, 0.5) and ends at (2.5, 2.5).
@@ -195,7 +208,8 @@ julia> win
  0.125      0.728553  0.853553  0.728553  0.125
  0.0214466  0.125     0.146447  0.125     0.0214466
 
- see TiledWindowView() for more examples.
+# see TiledWindowView() for more examples.
+```
 """
 function get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false, offset=CtrFT)
     tile_size = A.tile_size
@@ -224,9 +238,9 @@ function get_window(A::TiledView; window_function=window_hanning, get_norm=false
 end
 
 """
-function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
-    rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
-    window_function=window_hanning, get_norm=false, verbose=false, offset=CtrFT) where {T, M}
+    function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
+                             rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
+                             window_function=window_hanning, get_norm=false, verbose=false, offset=CtrFT) where {T, M}
 
 Creates an 2N dimensional view of the data by tiling the N-dimensional data as 
 specified by tile_size, tile_overlap and optionally tile_center.
@@ -316,9 +330,9 @@ julia> data # lets see if the weigths correctly sum to one?
  0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
  0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
  0.853553  1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0       1.0
-```
 # This result may also be used for subsequent normalization but can also be directly obtained by
 julia> myview, matching_window, normalized = TiledWindowView(rand(10,10).+0, (5, 5);get_norm=true);
+```
 """
 function TiledWindowView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int};
                          rel_overlap::NTuple{M,Float64}=tile_size .*0 .+ 1.0,
