@@ -4,9 +4,9 @@ using TiledViews
 
 @testset "testing array access" begin
     a = TiledView(reshape(1:49,(7,7)), (4, 4),(0, 0));
-    @test size(a) == (4,4,2,2)
+    @test size(a) == (4,4,3,3)
     @test a[1,1,1,1] == 0   
-    @test a[4,4,1,1] == 17
+    @test a[4,4,1,1] == 1
 end
 
 @testset "Check errors" begin
@@ -31,7 +31,7 @@ end
 @testset "Test tile_centers" begin
     q = rand(100,101);
     a=TiledView(q, (80,91), (0,0));
-    @test [(-20, -10) (-20, 81);  (60, -10) (60, 81)] == tile_centers(a)
+    @test [(-80, -91)  (-80, 0)  (-80, 91);  (0, -91)    (0, 0)    (0, 91); (80, -91)   (80, 0)   (80, 91)] == tile_centers(a)
 end
 
 #=
@@ -84,6 +84,13 @@ end
     @test all(win .== win2)
     tiles, win = TiledWindowView(dest, tile_size, rel_overlap=(1.0,1.0), get_norm=true);
     @test all(win .== win2)
+
+    arr = [i*10 + j for i=0:8, j=0:9]
+    q = TiledView(arr, (4,4), (0,0), keep_center=true);
+    @test q[3,3,2,2] == 45 # see if the center really aligns with the center
+    arr = [i*10 + j for i=0:8, j=0:9]
+    q = TiledView(arr, (5,5), (0,0), keep_center=true);
+    @test q[3,3,2,2] == 45 # see if the center really aligns with the center
 end
 
 @testset "sub-indexing" begin
@@ -98,7 +105,7 @@ end
     for (t,tn,tc,tc2) in zip(eachtile(a),eachtilenumber(a),eachtilerelpos(a),eachtilerelpos(a,2.0))
         t[:] .+= tn[1];
     end
-    @test q[end,end] == 2
+    @test q[end,end] == 3
 end
 
 @testset "tiled_processing" begin

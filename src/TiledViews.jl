@@ -76,11 +76,13 @@ function TiledView(data::AbstractArray{T,M}, tile_size::NTuple{M,Int}, tile_over
                    tile_center::NTuple{M,Int} = (tile_size .÷ 2 .+1); pad_value=nothing, keep_center=true) where {T, M}
     # Note that N refers to the original number of dimensions
     tile_period = tile_size .- tile_overlap
-    if keep_center
-        data_center = center(data)
-        tile_offset = mod.((data_center .- tile_center), tile_period)
-    else
-        tile_offset = tile_period .* 0
+    tile_offset = let
+        if keep_center
+            @show data_center = center(data)
+            tile_period .- mod.((data_center .- tile_center), tile_period)
+        else
+            tile_period .* 0
+        end
     end
     N = 2*M
     return TiledView{T,N,M}(data; tile_size=tile_size, tile_period=tile_period, tile_offset=tile_offset, pad_value=pad_value)
