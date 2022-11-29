@@ -414,9 +414,9 @@ end
 Processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
 """
 function tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=eltype(tiled_view.parent), window_function=window_hanning)
-    @time res = zeros_like(tiled_view, dtype)
+    res = zeros_like(tiled_view, dtype)
     res.parent .= zero(dtype)
-    @time win = get_window(tiled_view, window_function=window_function)
+    win = get_window(tiled_view, window_function=window_function)
     ttn = get_num_tiles(tiled_view)
     for (src, dest, tn) in zip(eachtile(tiled_view), eachtile(res), eachtilenumber(res))
         if verbose
