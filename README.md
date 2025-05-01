@@ -5,7 +5,10 @@
 
 
 This package allows to view an N-dimensional array as an 2N-dimensional `TiledView` being separated in overlapping tiles.
-The tiled view has read and write access. 
+The tiled view has read and write access.
+
+Even without explicitely using the `TiledView` datatype, you may be interested in using the function `tiled_processing`which is capable or automatically tiling the input array and reassembling the results (with overlap) via a weighted window approach. It can even deal with functions that return multiple results in a `Tuple` or `Vector` by returning a Vector of results. All you need to do to retrieve the assempled result is to apply the `.parent` member to each Tiled result.
+
 Via the `TiledWindowView` it is possible to imprint a weight-window onto the tiled view. By default the window is chosen such that
 it sums up to one except in places very close to the border, where an insufficient number of contributions are generated.
 However this can effect can easily be accounted for, since it optionally returns an overall weight distribution.

@@ -110,10 +110,48 @@ function Base.size(A::TiledView)
     return (A.tile_size..., (get_num_tiles(A))...)
 end
 
+"""
+    zeros_like(A::TiledView, ::Type{T}=eltype(A.parent))
+
+returns a new `TiledView` of the same size as `A` filled with zeros.
+
+## Arguments:
+* `A`: the `TiledView` to be used as a template for the new array.
+* `T`: the element type of the new array. By default, it is the same as the type of the parent array of `A`.
+"""
 function zeros_like(A::TiledView, ::Type{T}=eltype(A.parent)) where {T}
     TiledView{T,ndims(A),length(A.tile_size)}(zeros(T, size(A.parent)); tile_size=A.tile_size, tile_period=A.tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
 end
 
+"""
+    zeros_like(A::TiledView, reduced_size::NTuple, ::Type{T}=eltype(A.parent)) where {T}
+
+returns a new `TiledView` of referring to a zero-array of  size `reduced_size` but with the same tile-layout as `A`.
+
+## Arguments:
+* `A`: the `TiledView` to be used as a template for the new array.
+* `reduced_size`: the size of the new array. The first N dimensions are the tile size, the second N dimensions are the number of tiles.
+* `T`: the element type of the new array. By default, it is the same as the type of the parent array of `A`.
+"""
+function zeros_like(A::TiledView, reduced_size::NTuple, ::Type{T}=eltype(A.parent)) where {T}
+    @assert all(size(A.parent) .== reduced_size .|| (A.tile_size .== size(A.parent) .&& reduced_size .== 1)) "reduced_size must be 1 and the tile needs to span the array, or the same size as the parent array of A"
+    tile_size = ntuple((d)-> (A.tile_size[d] == size(A.parent, d) && reduced_size[d] == 1) ? 1 : A.tile_size[d], ndims(A.parent))
+    tile_period = ntuple((d)-> (A.tile_size[d] == size(A.parent, d) && reduced_size[d] == 1) ? 1 : A.tile_period[d], ndims(A.parent))
+    tile_offset = ntuple((d)-> (A.tile_size[d] == size(A.parent, d) && reduced_size[d] == 1) ? 0 : A.tile_offset[d], ndims(A.parent))
+    return TiledView{T,ndims(A),length(tile_size)}(zeros(T, reduced_size); tile_size=tile_size, tile_period = tile_period,
+                tile_offset = tile_offset, pad_value = A.pad_value) 
+end
+
+
+"""
+    ones_like(A::TiledView, ::Type{T}=eltype(A.parent))
+
+returns a new `TiledView` of the same size as `A` filled with ones.
+
+## Arguments:
+* `A`: the `TiledView` to be used as a template for the new array.
+* `T`: the element type of the new array. By default, it is the same as the type of the parent array of `A`.
+"""
 function ones_like(A::TiledView, ::Type{T}=eltype(A.parent)) where {T}
     TiledView{T,ndims(A),length(A.tile_size)}(ones(T, size(A.parent)); tile_size=A.tile_size, tile_period=A.tile_period, tile_offset=A.tile_offset, pad_value=A.pad_value) 
 end
@@ -214,12 +252,18 @@ julia> win
 ```
 """
 function get_window(A::TiledView; window_function=window_hanning, get_norm=false, verbose=false, offset=CtrFT)
+    # this is probably not type-stable, but it is not clear how to do this otherwise
+    if isnothing(window_function)
+        return 1;
+    end
     tile_size = A.tile_size
     tile_pitch = A.tile_period
     tile_overlap = tile_size .- tile_pitch
 
     winend = (tile_size ./ 2.0)
     winstart = (winend .- tile_overlap)
+    winend = winend .+ (tile_overlap .== 0) .* (64 .* eps(Float64)) # avoid zero size windows, which can cause NaNs
+
     if verbose
         @info("Tiles with pitch $tile_pitch overlap by $tile_overlap pixels.\n")
         @info("Window starts at $winstart and ends at $winend.\n")
@@ -407,37 +451,188 @@ function eachtilenumber(tiled_view::TiledView)
     return (Tuple(tn) for tn in CartesianIndices(get_num_tiles(tiled_view)))
 end
 
+"""
+    alloc_zeros(res_tile, arr, dtype=nothing)
+
+a helper function to allocate a new array of zeros with the same size as the tile `res_tile`.
+The function is used in the `tiled_processing` function to allocate the result array.
+It dispatches for a tuple input type to allocate separately for each of the return types as stored in res_tile.
+Allocation is only done for AbstractArrays, whereas other types are just kept in the tile-wise way as an Array of results of type Any.
+"""
+function alloc_zeros(tiled_view::TiledView, res_tile::AbstractArray, arr, dtype=nothing)
+    res_size = ntuple((d)-> (tiled_view.tile_size[d] == size(arr, d) && size(res_tile, d) == 1) ? 1 : size(arr, d), ndims(arr))
+    if isnothing(dtype)
+        dtype = eltype(res_tile)
+    end
+    return zeros_like(tiled_view, res_size, dtype);
+end
+
+function alloc_zeros(tiled_view::TiledView, res_tile, arr, dtype=nothing)
+# return an empty array of Any type of the size of the tiles.
+    s = get_num_tiles(tiled_view)
+    # allocate an array of tile positions, each of which will store the corresponding result
+    return Array{typeof(res_tile)}(undef, s...)
+end
+
+# return an vector of various types, possibly with the large arrays as components
+function alloc_zeros(tiled_view::TiledView, res_tile::Union{Tuple, Vector}, arr, dtype=nothing)
+    return collect(alloc_zeros(tiled_view, res_t, arr, dtype) for res_t in res_tile)
+end
+
+function get_window(res::Vector; window_function=window_function)
+    windows = []
+    for r in res
+        if isa(r, TiledView)
+            push!(windows, get_window(r; window_function=window_function))
+        else
+            push!(windows, 1)
+        end
+    end
+    return windows
+end
+
+function add_to_member!(res::Vector, res_tile::Union{Tuple, Vector}, wins::Vector, n)
+    @assert length(res) == length(res_tile) "res and res_tile must have the same length"
+    for (sub_res, sub_res_tile, win) in zip(res, res_tile, wins)
+        # @show typeof(sub_res) typeof(sub_res_tile) typeof(win)
+        add_to_member!(sub_res, sub_res_tile, win, n)
+    end
+    return nothing
+end
+
+function add_to_member!(res::TiledView, res_tile::AbstractArray, win, n)
+    # @show res.tile_size size(res_tile)
+    @assert res.tile_size == size(res_tile) "res and res_tile must have the same size"
+    eachtile(res)[n] .+= win .* res_tile
+    return nothing
+end
+
+# no window applied to other types. Just store the results
+function add_to_member!(res, res_tile, win, n)
+    # @show typeof(res) typeof(res_tile) typeof(win)
+    res[n] = res_tile
+    return nothing
+end
 
 """
     tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=eltype(tiled_view.parent), window_function=window_hanning)
  
 Processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
+
+Returns a TiledView of the result. The untiled result can be accessed via `.parent` member.
+
+To be able to handle also functions that habe mutiple return values as a tuple, the accessor function can be used to extract the relevant value from the tuple.
+The default is the identity function, which is used for functions that return a single value. If a tuple of accessor functions is provided,
+each accessor function will be called and individual an return array for each element of the tuple is constructed and returned as a tuple.
+
+## Arguments
+* `tiled_view`: the input data to decompose into a TiledView. No copies are made for the TiledView and the raw data can be accessed via `.parent`.
+* `fct`: the function to be applied to each tile. The function should accept a single argument, which is the tile data.
+* `verbose`: If true, diagnostic information on the window layout is printed.
+* `dtype`: The element type of the new array. By default, it is the same as the type of the parent array of `tiled_view`.
+* `window_function`: The window function as defined in IndexFunArrays to apply to the TiledView. The result is currently not any longer a view as it is unclear how to wrap the multiplication into a view. For this reason the TiledView without the window applied is also returned and can be used for assignments. By default a Hanning window (window_hanning) is used.
+* `accessor`: A function to access the data in the tile. By default, it is the identity function. 
 """
-function tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=eltype(tiled_view.parent), window_function=window_hanning)
-    res = zeros_like(tiled_view, dtype)
-    res.parent .= zero(dtype)
-    win = get_window(tiled_view, window_function=window_function)
+function tiled_processing(tiled_view::TiledView, fct; verbose=true, dtype=nothing, window_function=nothing)
+    if (isnothing(window_function)  && !all(tiled_view.tile_size .== tiled_view.tile_period))
+        window_function = window_hanning
+    end
+    arr = tiled_view.parent
+    all_tiles = eachtile(tiled_view)
+    first_tile = first(all_tiles)
+    res_tile = fct(collect(first_tile))
+
+    # find out if the fct projects along dimensions generating singlon result dimensions and calculate a corresponding result size.
+    # Only if the tiling size is equal to the size of the parent array:
+    res = alloc_zeros(tiled_view, res_tile, arr, dtype)
+
+    # res_size = ntuple((d)-> (tiled_view.tile_size[d] == size(arr, d) && size(res_tile, d) == 1) ? 1 : size(arr, d), ndims(arr))
+    # if isnothing(dtype)
+    #     dtype = eltype(res_tile)
+    # end
+    # res = zeros_like(tiled_view, res_size, dtype);
+
+    win = get_window(res; window_function=window_function)
+ 
     ttn = get_num_tiles(tiled_view)
-    for (src, dest, tn) in zip(eachtile(tiled_view), eachtile(res), eachtilenumber(res))
+    n = 1
+    for (src, tn) in zip(eachtile(tiled_view), eachtilenumber(tiled_view))
         if verbose
             perc = round(100 * (linear_index(tn, ttn)-1) ./ prod(ttn))
             print("processing tile $(tn) out of $(ttn), $(perc)%\n")
         end
-        size(src)
-        res_tile = fct(collect(src))
-        dest .+= win .* res_tile
+        # since the first has already been calculated, we need to skip it
+        if (n > 1)
+            res_tile = fct(collect(src))
+            # res_tiles[n] .+= win .* res_tile
+        end
+        add_to_member!(res, res_tile, win, n)
+        n += 1
     end 
     return res
 end
 
 """
-    tiled_processing(data, fct; verbose=true, dtype=eltype(data), window_function=window_hanning)
+    tiled_processing(data, fct, tile_size, tile_overlap = tile_size .* 0; verbose=true, dtype=eltype(data), keep_center=false, window_function=nothing)
  
-Processes a raw dataset using tiled views by submitting each tile to the function `fct` and merging the results via the `window_function`.
+Processes a raw dataset using tiled views by wrapping the `data` in a TiledView, and submitting each tile to the function `fct` and merging the results via the `window_function`.
+Returns a TiledView of the result. The untiled result can be accessed via `.parent` member.
+Note that this version with the `tile_size` adds a view conveniences: If the tile size specifies fewer dimensions than the data, the trailing dimensions are automatically expanded to match the full size of the data. 
+The default `nothing` in the window_function assures that no window is applied if no overlap is used. With overlap this changes automatically to a Hanning window.
+Furthermore, as opposed to the other version, the keep_center option has the default value of false, which is more convenient for most applications that just tile arrays in a matching way.
+
+## Arguments
+* `data`: the input data to decompose into a TiledView. No copies are made for the TiledView and the raw data can be accessed via `.parent`.
+* `fct`: the function to be applied to each tile. The function should accept a single argument, which is the tile data.
+* `tile_size`: A Tuple describing the size of each tile. This size will form the first N dimensions of the result of `size(myview)`. The second N dimensions refer to N-dimensional tile numbering.
+* `tile_overlap`: Tuple specifying the overlap between successive tiles in voxels. This implicitely defines the pitch between tiles as `(tile_size .- tile_overlap)`.
+* `verbose`: If true, diagnostic information on the window layout is printed.
+* `dtype`: The element type of the new array. By default, it is the same as the type of the parent array of `data`.
+* `keep_center`: This boolean (default: false) specifies whether the center of the parent `data` will be aligned with the center of the central tile. If `false`, the first tile starts at offset zero.
+* `window_function`: The window function as defined in IndexFunArrays to apply to the TiledView. The result is currently not any longer a view as it is unclear how to wrap the multiplication into a view. For this reason the TiledView without the window applied is also returned and can be used for assignments. By default a Hanning window (window_hanning) is used.
+
+## Example
+```jldoctest
+julia> res = tiled_processing(ones(10,10), (a)->10*a, (2,2), (0,0), verbose=false).parent
+10×10 Matrix{Float64}:
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+ 10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0  10.0
+
+julia> tiled_processing(ones(10,20), (a)->sum(a, dims=2), (2,), verbose=false).parent
+10×1 Matrix{Float64}:
+ 20.0
+ 20.0
+ 20.0
+ 20.0
+ 20.0
+ 20.0
+ 20.0
+ 20.0
+ 20.0
+ 20.0
+
+julia> fct = (a)->[3 .*a, sum(a, dims=2), "result: \$(sum(a))"]; # a function that returns a tuple of three values of very different types
+
+julia> tiled_processing(ones(5,6), fct, (2,), verbose=false)
+win = Any[1, 1, 1]
+3-element Vector{AbstractArray}:
+ [3.0 3.0 … 3.0 3.0; 3.0 3.0 … 3.0 3.0;;; 3.0 3.0 … 3.0 3.0; 3.0 3.0 … 3.0 3.0;;; 3.0 3.0 … 3.0 3.0; 0.0 0.0 … 0.0 0.0;;;;]
+ [6.0; 6.0;;; 6.0; 6.0;;; 6.0; 0.0;;;;]
+ ["result: 12.0"; "result: 12.0"; "result: 6.0";;]
+```
 """
-function tiled_processing(data, fct, tile_size, tile_overlap; verbose=true, dtype=eltype(data), keep_center=false, window_function=window_hanning)
-    tiles = TiledView(data, tile_size, tile_overlap, keep_center=keep_center);
-    return tiled_processing(tiles,fct; verbose=verbose, dtype=dtype, window_function=window_function)
+function tiled_processing(data, fct, tile_size, tile_overlap =  expand_size(tile_size, size(data)) .* 0; verbose=true, dtype=eltype(data), keep_center=false, window_function=nothing)
+    tile_size = expand_size(tile_size, size(data))
+    tiled_view = TiledView(data, tile_size, tile_overlap; keep_center=keep_center);
+    return tiled_processing(tiled_view, fct; verbose=verbose, dtype=dtype, window_function=window_function)
 end
 
 end # module
