@@ -1,6 +1,8 @@
 using Pkg
 Pkg.activate(".")
 Pkg.instantiate()
+Pkg.add("Documenter")
+Pkg.dev("..") # use the local version of TiledViews.jl
 
 using Documenter, TiledViews
 
