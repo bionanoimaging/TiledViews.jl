@@ -132,6 +132,9 @@ end
     @test all(res[2].parent .== 6)
     @test all(res[3][1:2] .== "result: 12.0") # this is a random number, so it should be the same for all tiles
     @test all(res[3][3] .== "result: 6.0") # this is a random number, so it should be the same for all tiles
+    res = tiled_processing(ones(10,10), (a)->rand(4,5), (5,5), (0,0), verbose=false);
+    @test typeof(res) == Matrix{Matrix{Float64}}
+    @test size(res) == (2,2)
 end
 
 return

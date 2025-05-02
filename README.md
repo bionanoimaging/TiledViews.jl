@@ -1,7 +1,9 @@
 # TiledViews.jl
 
-[![codecov](https://codecov.io/gh/bionanoimaging/TiledViews.jl/branch/main/graph/badge.svg?token=910XO9N4NO)](https://codecov.io/gh/bionanoimaging/TiledViews.jl)
-[![.github/workflows/ci.yml](https://github.com/bionanoimaging/TiledViews.jl/actions/workflows/ci.yml/badge.svg)](https://github.com/bionanoimaging/TiledViews.jl/actions/workflows/ci.yml)
+| **Documentation**                       | **Build Status**                          | **Code Coverage**               |
+|:---------------------------------------:|:-----------------------------------------:|:-------------------------------:|
+| [![][docs-stable-img]][docs-stable-url] [![][docs-dev-img]][docs-dev-url] | [![][CI-img]][CI-url] | [![][codecov-img]][codecov-url] |
+
 
 
 This package allows to view an N-dimensional array as an 2N-dimensional `TiledView` being separated in overlapping tiles.
@@ -31,3 +33,15 @@ Type `]`in the REPL to get to the package manager and install it:
 ```julia
 julia> ] add TiledViews
 ```
+
+[docs-dev-img]: https://img.shields.io/badge/docs-dev-pink.svg
+[docs-dev-url]: https://bionanoimaging.github.io/TiledViews.jl/dev/
+
+[docs-stable-img]: https://img.shields.io/badge/docs-stable-darkgreen.svg
+[docs-stable-url]: https://bionanoimaging.github.io/TiledViews.jl/stable/
+
+[CI-img]: https://github.com/bionanoimaging/TiledViews.jl/actions/workflows/ci.yml/badge.svg
+[CI-url]: https://github.com/bionanoimaging/TiledViews.jl/actions/workflows/ci.yml
+
+[codecov-img]: https://codecov.io/gh/bionanoimaging/TiledViews.jl/branch/main/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/bionanoimaging/TiledViews.jl
