@@ -21,8 +21,8 @@ jobs:
           - '1'
         os:
           - ubuntu-latest
-          - windows-latest 
-          - macOS-latest
+          - windows-latest  # Add this line to include the latest Windows system
+          - macOS-latest  # Add this line to include the latest Windows system
         arch:
           - x64
     steps:
@@ -39,5 +39,15 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-
-
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: julia-actions/setup-julia@v1
+        with:
+          version: "1.7"
+      - uses: julia-actions/julia-docdeploy@releases/v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
