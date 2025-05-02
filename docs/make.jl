@@ -1,3 +1,7 @@
+using Pkg
+Pkg.activate(".")
+Pkg.instantiate()
+
 using Documenter, TiledViews
 
 DocMeta.setdocmeta!(TiledViews, :DocTestSetup, :(using TiledViews); recursive=true)
