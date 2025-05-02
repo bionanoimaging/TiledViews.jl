@@ -16,4 +16,8 @@ makedocs(
     # strict = true,
 )
 
-deploydocs(repo = "github.com/bionanoimaging/TiledViews.jl.git", devbranch = "main")
+deploydocs(
+repo = "github.com/bionanoimaging/TiledViews.jl.git",
+branch = "gh-pages",  # Ensure this matches the GitHub Pages branch
+devbranch = "main"    # Ensure this matches your development branch
+)
