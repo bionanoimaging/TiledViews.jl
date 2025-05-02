@@ -111,9 +111,30 @@ end
 @testset "tiled_processing" begin
     q = ones(10,10,10);
     a = TiledView(q, (4,4,4), (2,2,2));
-    fct(a)=sin.(a)
-    res = tiled_processing(q, fct, (4,4,4), (2,2,2))
-    @test maximum(res.parent) ≈ sin(1)
+    @test get_num_tiles(a) == (6,6,6)
+    res = tiled_processing(a, (v)->sin.(v); verbose=false);
+
+    res2 = tiled_processing(q, (v)->sin.(v), (4,4,4), (2,2,2); verbose=false);
+    @test maximum(res2.parent) ≈ sin(1)
+    @test res != res2
+    a = TiledView(q, (4,4,4), (2,2,2); keep_center=false);
+    @test get_num_tiles(a) == (5,5,5)
+    res3 = tiled_processing(a, (v)->sin.(v); verbose=false);
+    @test res2 == res3
+
+    # test for incomplete tile sizes to be expanded
+    @test all(tiled_processing(ones(10,20), (a)->3 .*a, (2,), window_function = TiledViews.IndexFunArrays.window_hanning, verbose=false).parent .== 3)
+    # test for functions that reduce dimensions and also test for a bug in the window function
+    @test all(tiled_processing(ones(10,20), (a)->sum(a, dims=2), (2,),  window_function = TiledViews.IndexFunArrays.window_hanning, verbose=false).parent .== 20)
+    fct2 = (a)->[3 .*a, sum(a, dims=2), "result: $(sum(a))"]; # a function that returns a tuple of three values of very different types
+    res = tiled_processing(ones(5,6), fct2, (2,), verbose=true)
+    @test all(res[1].parent .== 3)
+    @test all(res[2].parent .== 6)
+    @test all(res[3][1:2] .== "result: 12.0") # this is a random number, so it should be the same for all tiles
+    @test all(res[3][3] .== "result: 6.0") # this is a random number, so it should be the same for all tiles
+    res = tiled_processing(ones(10,10), (a)->rand(4,5), (5,5), (0,0), verbose=false);
+    @test typeof(res) == Matrix{Matrix{Float64}}
+    @test size(res) == (2,2)
 end
 
 return
