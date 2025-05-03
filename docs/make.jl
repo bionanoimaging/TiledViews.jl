@@ -6,6 +6,7 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
     Pkg.develop(PackageSpec(; path=(@__DIR__) * "/../"))
     Pkg.resolve()
     Pkg.instantiate()
+    @info "Activated the TiledViews.jl development environment for documentation generation."
 end
 
 using Documenter, TiledViews
