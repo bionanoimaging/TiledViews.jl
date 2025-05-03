@@ -1,13 +1,13 @@
 # (b) if docs is not the current active environment, switch to it
 # (from https://github.com/JuliaIO/HDF5.jl/pull/1020/) 
-if Base.active_project() != joinpath(@__DIR__, "Project.toml")
-    using Pkg
-    Pkg.activate(@__DIR__)
-    Pkg.develop(PackageSpec(; path=(@__DIR__) * "/../"))
-    Pkg.resolve()
-    Pkg.instantiate()
-    @info "Activated the TiledViews.jl development environment for documentation generation."
-end
+# if Base.active_project() != joinpath(@__DIR__, "Project.toml")
+# end
+# using Pkg
+# Pkg.activate(@__DIR__)
+# Pkg.develop(PackageSpec(; path=(@__DIR__) * "/../"))
+# Pkg.resolve()
+# Pkg.instantiate()
+# @info "Activated the TiledViews.jl development environment for documentation generation."
 
 using Documenter, TiledViews
 
