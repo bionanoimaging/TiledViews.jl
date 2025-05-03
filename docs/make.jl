@@ -1,5 +1,3 @@
-using Documenter, TiledViews
-
 # (b) if docs is not the current active environment, switch to it
 # (from https://github.com/JuliaIO/HDF5.jl/pull/1020/) 
 if Base.active_project() != joinpath(@__DIR__, "Project.toml")
@@ -9,6 +7,9 @@ if Base.active_project() != joinpath(@__DIR__, "Project.toml")
     Pkg.resolve()
     Pkg.instantiate()
 end
+
+using Documenter, TiledViews
+
 
 DocMeta.setdocmeta!(TiledViews, :DocTestSetup, :(using TiledViews); recursive=true)
 
